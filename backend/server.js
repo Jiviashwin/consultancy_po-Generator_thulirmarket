@@ -23,9 +23,21 @@ connectDB();
 
 // Middleware
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production'
-        ? process.env.FRONTEND_URL
-        : true,
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        if (process.env.NODE_ENV === 'production') {
+            const allowedOrigin = process.env.FRONTEND_URL;
+            // Allow the configured frontend URL OR any Vercel preview URL
+            if (origin === allowedOrigin || origin.endsWith('.vercel.app')) {
+                return callback(null, true);
+            }
+            return callback(new Error(`CORS: origin ${origin} not allowed`));
+        }
+        // Development: allow all
+        return callback(null, true);
+    },
     credentials: true
 }));
 
