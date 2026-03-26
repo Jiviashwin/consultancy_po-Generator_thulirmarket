@@ -140,7 +140,7 @@ const Vendors = () => {
                 </div>
             </div>
 
-            <div className="page-header">
+            <div className="page-header responsive-flex" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div>
                     <h1 className="page-title">Vendors</h1>
                     <p className="page-description">Manage your suppliers and vendors</p>

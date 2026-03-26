@@ -1,6 +1,7 @@
 import express from 'express';
 import {
     generatePurchaseOrders,
+    generateCustomPurchaseOrders,
     getAllPurchaseOrders,
     getPurchaseOrderById,
     updatePurchaseOrder,
@@ -14,6 +15,7 @@ const router = express.Router();
 
 // Public route - no authentication required
 router.post('/generate', generatePurchaseOrders);
+router.post('/custom', generateCustomPurchaseOrders);
 
 // All other PO routes require authentication
 router.use(requireAuth);

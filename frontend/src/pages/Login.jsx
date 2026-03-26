@@ -37,13 +37,16 @@ const Login = () => {
     };
 
     return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            overflow: 'hidden'
+        <div className="responsive-flex" style={{
+            minHeight: '100dvh',
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)',
+            boxSizing: 'border-box'
         }}>
             {/* Left Side - Store Image */}
-            <div style={{
+            <div className="hide-on-mobile" style={{
                 flex: 1,
                 position: 'relative',
                 display: 'flex',
@@ -87,16 +90,17 @@ const Login = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2rem',
-                background: '#f9fafb'
+                padding: '1.5rem',
+                background: '#f9fafb',
+                overflowY: 'auto'
             }}>
                 <div style={{
                     background: 'white',
                     borderRadius: '16px',
                     boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-                    padding: '3rem',
+                    padding: '2rem',
                     width: '100%',
-                    maxWidth: '420px'
+                    maxWidth: '400px'
                 }}>
                     {/* Logo */}
                     <div style={{

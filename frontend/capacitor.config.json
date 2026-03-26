@@ -1,0 +1,8 @@
+{
+  "appId": "com.thulirmarket.app",
+  "appName": "Thulir Market",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  }
+}

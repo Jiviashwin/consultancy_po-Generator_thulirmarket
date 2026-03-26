@@ -14,6 +14,7 @@ const billSchema = new mongoose.Schema({
         },
         sku: String,
         name: String,
+        unit: String,
         quantity: {
             type: Number,
             required: true,
@@ -42,10 +43,23 @@ const billSchema = new mongoose.Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ['CASH', 'CARD', 'UPI', 'OTHER'],
+        enum: ['CASH', 'CARD', 'UPI', 'ONLINE', 'OTHER'],
         default: 'CASH'
     },
+    paymentStatus: {
+        type: String,
+        enum: ['PENDING', 'PAID', 'FAILED'],
+        default: 'PENDING'
+    },
+    paymentId: {
+        type: String,
+        trim: true
+    },
     customerName: {
+        type: String,
+        trim: true
+    },
+    customerPhone: {
         type: String,
         trim: true
     },

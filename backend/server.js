@@ -10,6 +10,7 @@ import vendorRoutes from './routes/vendors.js';
 import productRoutes from './routes/products.js';
 import purchaseOrderRoutes from './routes/purchaseOrders.js';
 import billingRoutes from './routes/billing.js';
+import paymentRoutes from './routes/payment.js';
 
 // Load environment variables
 dotenv.config();
@@ -22,7 +23,9 @@ connectDB();
 
 // Middleware
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL
+        : true,
     credentials: true
 }));
 
@@ -48,6 +51,7 @@ app.use('/api/vendors', vendorRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/payment', paymentRoutes);
 
 // Health check route
 app.get('/api/health', (req, res) => {
@@ -78,7 +82,7 @@ app.use((err, req, res, next) => {
 // Start server
 const PORT = process.env.PORT || 5002;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`
 ╔══════════════════════════════════════════════╗
 ║  🚀 PO Generator Server is running!          ║
@@ -87,6 +91,16 @@ app.listen(PORT, () => {
 ║  📡 API: http://localhost:${PORT}/api        ║
 ╚══════════════════════════════════════════════╝
   `);
+});
+
+// Gracefully handle port already in use
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.error(`\n❌ Port ${PORT} is already in use. Run: lsof -ti :${PORT} | xargs kill -9\n`);
+        process.exit(1); // exit so nodemon can cleanly restart
+    } else {
+        throw err;
+    }
 });
 
 export default app;

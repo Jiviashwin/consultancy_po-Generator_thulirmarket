@@ -7,18 +7,26 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Check if user is logged in on mount
+    // Check if user is logged in on mount (from saved token)
     useEffect(() => {
         checkAuth();
     }, []);
 
     const checkAuth = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            setLoading(false);
+            return;
+        }
         try {
             const response = await authAPI.getCurrentUser();
             if (response.data.success) {
                 setUser(response.data.user);
+            } else {
+                localStorage.removeItem('token');
             }
         } catch (error) {
+            localStorage.removeItem('token');
             setUser(null);
         } finally {
             setLoading(false);
@@ -29,6 +37,8 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await authAPI.login({ email, password });
             if (response.data.success) {
+                // Save JWT token to localStorage
+                localStorage.setItem('token', response.data.token);
                 setUser(response.data.user);
                 return { success: true };
             }
@@ -47,6 +57,8 @@ export const AuthProvider = ({ children }) => {
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
+            // Remove JWT token from localStorage
+            localStorage.removeItem('token');
             setUser(null);
         }
     };

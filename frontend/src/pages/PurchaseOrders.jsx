@@ -114,7 +114,7 @@ const PurchaseOrders = () => {
 
     return (
         <div className="page-container">
-            <div className="page-header">
+            <div className="page-header responsive-flex" style={{ justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div>
                     <h1 className="page-title">Purchase Orders</h1>
                     <p className="page-description">Generate and manage purchase orders for vendors</p>
@@ -204,7 +204,7 @@ const PurchaseOrders = () => {
                                         </td>
                                         <td className="font-medium">{po.vendor?.name}</td>
                                         <td>{po.items?.length || 0} items</td>
-                                        <td className="font-semibold">${po.totalAmount.toFixed(2)}</td>
+                                        <td className="font-semibold">₹{po.totalAmount.toFixed(2)}</td>
                                         <td>
                                             <span className={`badge ${getStatusBadge(po.status)}`}>
                                                 {po.status}
@@ -236,7 +236,7 @@ const PurchaseOrders = () => {
                                                         className="btn btn-sm btn-success"
                                                         onClick={() => handleUpdateStatus(po._id, 'RECEIVED')}
                                                     >
-                                                        Mark Received
+                                                        Received
                                                     </button>
                                                 )}
                                             </div>
@@ -299,13 +299,13 @@ const PurchaseOrders = () => {
                                                 <div className="text-xs text-muted">{item.sku}</div>
                                             </td>
                                             <td>{item.quantity}</td>
-                                            <td>${item.unitPrice.toFixed(2)}</td>
-                                            <td className="font-semibold">${item.total.toFixed(2)}</td>
+                                            <td>₹{item.unitPrice.toFixed(2)}</td>
+                                            <td className="font-semibold">₹{item.total.toFixed(2)}</td>
                                         </tr>
                                     ))}
                                     <tr style={{ background: 'var(--gray-50)', fontWeight: 600 }}>
                                         <td colSpan="3" style={{ textAlign: 'right' }}>GRAND TOTAL:</td>
-                                        <td>${selectedPO.totalAmount.toFixed(2)}</td>
+                                        <td>₹{selectedPO.totalAmount.toFixed(2)}</td>
                                     </tr>
                                 </tbody>
                             </table>

@@ -101,6 +101,106 @@ const generatePurchaseOrders = async (req, res) => {
 };
 
 /**
+ * Generate Custom Purchase Orders from selected products
+ * POST /api/purchase-orders/custom
+ */
+const generateCustomPurchaseOrders = async (req, res) => {
+    try {
+        const { items } = req.body;
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No items provided for purchase order"
+            });
+        }
+
+        // 1. Fetch products and group by vendor
+        const groupedByVendor = {};
+
+        for (const item of items) {
+            const product = await Product.findById(item.productId).populate("vendor");
+
+            if (!product) {
+                return res.status(404).json({ success: false, message: `Product not found: ${item.productId}` });
+            }
+
+            if (!product.vendor || !product.vendor._id) {
+                console.warn("Product without vendor:", product._id);
+                continue; // Skip products without vendors
+            }
+
+            const vendorId = product.vendor._id.toString();
+
+            if (!groupedByVendor[vendorId]) {
+                groupedByVendor[vendorId] = {
+                    vendor: product.vendor,
+                    items: []
+                };
+            }
+
+            groupedByVendor[vendorId].items.push({
+                product: product._id,
+                sku: product.sku,
+                name: product.name,
+                quantity: item.quantity,
+                unitPrice: product.unitPrice,
+                total: item.quantity * product.unitPrice
+            });
+        }
+
+        const createdPOs = [];
+
+        // 2. Create POs per vendor
+        for (const vendorId in groupedByVendor) {
+            const group = groupedByVendor[vendorId];
+
+            const totalAmount = group.items.reduce(
+                (sum, item) => sum + item.total,
+                0
+            );
+
+            const po = new PurchaseOrder({
+                poNumber: `PO-${Date.now()}`,
+                vendor: vendorId,
+                vendorSnapshot: {
+                    vendorName: group.vendor.name,
+                    email: group.vendor.email,
+                    whatsappNumber: group.vendor.whatsappNumber
+                },
+                items: group.items,
+                totalAmount,
+                status: "DRAFT",
+                deliveryMethod: "WHATSAPP"
+            });
+
+            await po.save();
+            createdPOs.push(po);
+        }
+
+        if (createdPOs.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Failed to generate any custom purchase orders"
+            });
+        }
+
+        return res.status(201).json({
+            success: true,
+            count: createdPOs.length,
+            message: `Successfully created ${createdPOs.length} purchase order(s)`,
+            data: createdPOs
+        });
+    } catch (error) {
+        console.error("Generate Custom PO Error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Server error while generating custom purchase orders"
+        });
+    }
+};
+
+/**
  * Get all purchase orders
  * GET /api/purchase-orders
  */
@@ -385,6 +485,7 @@ const deletePurchaseOrder = async (req, res) => {
 
 export {
     generatePurchaseOrders,
+    generateCustomPurchaseOrders,
     getAllPurchaseOrders,
     getPurchaseOrderById,
     updatePurchaseOrder,

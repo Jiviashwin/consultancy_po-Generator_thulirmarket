@@ -100,8 +100,8 @@ const generatePurchaseOrderPDF = (poData, outputPath) => {
                 doc.text(item.sku, columnPositions[0], rowY, { width: columnWidths[0] });
                 doc.text(item.name, columnPositions[1], rowY, { width: columnWidths[1] });
                 doc.text(item.quantity.toString(), columnPositions[2], rowY, { width: columnWidths[2], align: 'right' });
-                doc.text(`$${item.unitPrice.toFixed(2)}`, columnPositions[3], rowY, { width: columnWidths[3], align: 'right' });
-                doc.text(`$${item.total.toFixed(2)}`, columnPositions[4], rowY, { width: columnWidths[4], align: 'right' });
+                doc.text(`Rs. ${item.unitPrice.toFixed(2)}`, columnPositions[3], rowY, { width: columnWidths[3], align: 'right' });
+                doc.text(`Rs. ${item.total.toFixed(2)}`, columnPositions[4], rowY, { width: columnWidths[4], align: 'right' });
 
                 rowY += 25;
             });
@@ -118,7 +118,7 @@ const generatePurchaseOrderPDF = (poData, outputPath) => {
                 .font('Helvetica-Bold')
                 .text('GRAND TOTAL:', 420, rowY, { width: 70, align: 'right' });
 
-            doc.text(`$${poData.totalAmount.toFixed(2)}`, 490, rowY, { width: 60, align: 'right' });
+            doc.text(`Rs. ${poData.totalAmount.toFixed(2)}`, 490, rowY, { width: 60, align: 'right' });
 
             // --- FOOTER SECTION ---
             doc.fontSize(9)

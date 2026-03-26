@@ -50,7 +50,7 @@ const sendPurchaseOrderEmail = async (options) => {
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">New Purchase Order</h2>
         <p>Dear ${vendorName},</p>
-        <p>Please find attached Purchase Order <strong>${poNumber}</strong> with a total amount of <strong>$${totalAmount.toFixed(2)}</strong>.</p>
+        <p>Please find attached Purchase Order <strong>${poNumber}</strong> with a total amount of <strong>₹${totalAmount.toFixed(2)}</strong>.</p>
         <p>Please review the order details and confirm the delivery date at your earliest convenience.</p>
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
         <p style="color: #666; font-size: 12px;">

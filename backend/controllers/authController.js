@@ -1,4 +1,8 @@
 import User from '../models/User.js';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'po-generator-secret-key-2024';
+const JWT_EXPIRES = '7d';
 
 /**
  * Login user
@@ -34,14 +38,17 @@ const login = async (req, res) => {
             });
         }
 
-        // Create session
-        req.session.userId = user._id;
-        req.session.userEmail = user.email;
-        req.session.userName = user.name;
+        // Create JWT token
+        const token = jwt.sign(
+            { userId: user._id, email: user.email, name: user.name },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES }
+        );
 
         res.json({
             success: true,
             message: 'Login successful',
+            token,
             user: {
                 id: user._id,
                 email: user.email,
@@ -65,14 +72,7 @@ const login = async (req, res) => {
  */
 const getCurrentUser = async (req, res) => {
     try {
-        if (!req.session.userId) {
-            return res.status(401).json({
-                success: false,
-                message: 'Not authenticated'
-            });
-        }
-
-        const user = await User.findById(req.session.userId).select('-password');
+        const user = await User.findById(req.userId).select('-password');
 
         if (!user) {
             return res.status(404).json({
@@ -105,18 +105,10 @@ const getCurrentUser = async (req, res) => {
  * POST /api/auth/logout
  */
 const logout = (req, res) => {
-    req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).json({
-                success: false,
-                message: 'Error logging out'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'Logout successful'
-        });
+    // With JWT, logout is handled client-side by removing the token
+    res.json({
+        success: true,
+        message: 'Logout successful'
     });
 };
 

@@ -23,6 +23,9 @@ const Inventory = () => {
     });
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all'); // 'all' or 'low-stock'
+    const [selectedProducts, setSelectedProducts] = useState(new Set());
+    const [showCustomPOModal, setShowCustomPOModal] = useState(false);
+    const [customPOQuantities, setCustomPOQuantities] = useState({});
 
     useEffect(() => {
         fetchData();
@@ -137,18 +140,25 @@ const Inventory = () => {
 
     return (
         <div className="page-container">
-            <div className="page-header">
+            <div className="page-header responsive-flex" style={{ marginBottom: '1rem', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div>
                     <h1 className="page-title">Inventory</h1>
                     <p className="page-description">Manage your product inventory and stock levels</p>
                 </div>
-                <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-                    + Add Product
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {selectedProducts.size > 0 && (
+                        <button className="btn btn-success" onClick={() => setShowCustomPOModal(true)}>
+                            📦 Generate Custom PO ({selectedProducts.size})
+                        </button>
+                    )}
+                    <button className="btn btn-primary" onClick={() => handleOpenModal()}>
+                        + Add Product
+                    </button>
+                </div>
             </div>
 
             {/* Filter Buttons */}
-            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem' }}>
+            <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                     className={`btn ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
                     onClick={() => setFilter('all')}
@@ -168,6 +178,19 @@ const Inventory = () => {
                     <table className="table">
                         <thead>
                             <tr>
+                                <th style={{ width: '40px' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={filteredProducts.length > 0 && selectedProducts.size === filteredProducts.length}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedProducts(new Set(filteredProducts.map(p => p._id)));
+                                            } else {
+                                                setSelectedProducts(new Set());
+                                            }
+                                        }}
+                                    />
+                                </th>
                                 <th>SKU</th>
                                 <th>Product Name</th>
                                 <th>Vendor</th>
@@ -210,6 +233,26 @@ const Inventory = () => {
                                     return (
                                         <tr key={product._id} style={isLowStock ? { background: '#fee2e2' } : {}}>
                                             <td>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedProducts.has(product._id)}
+                                                    onChange={(e) => {
+                                                        const newSet = new Set(selectedProducts);
+                                                        if (e.target.checked) {
+                                                            newSet.add(product._id);
+                                                            // Initialize auto-quantity to reorderQuantity if possible
+                                                            setCustomPOQuantities(prev => ({
+                                                                ...prev,
+                                                                [product._id]: product.reorderQuantity || 1
+                                                            }));
+                                                        } else {
+                                                            newSet.delete(product._id);
+                                                        }
+                                                        setSelectedProducts(newSet);
+                                                    }}
+                                                />
+                                            </td>
+                                            <td>
                                                 <code style={{
                                                     background: 'var(--gray-100)',
                                                     padding: '0.25rem 0.5rem',
@@ -238,7 +281,7 @@ const Inventory = () => {
                                             </td>
                                             <td>{product.reorderPoint}</td>
                                             <td>{product.reorderQuantity}</td>
-                                            <td>${product.unitPrice.toFixed(2)}</td>
+                                            <td>₹{product.unitPrice.toFixed(2)}</td>
                                             <td>
                                                 {isLowStock ? (
                                                     <span className="badge badge-warning">⚠️ Low</span>
@@ -281,7 +324,7 @@ const Inventory = () => {
                 {error && <div className="alert alert-danger">{error}</div>}
 
                 <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label className="form-label required">SKU</label>
                             <input
@@ -318,7 +361,7 @@ const Inventory = () => {
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label className="form-label required">Vendor</label>
                             <select
@@ -349,7 +392,7 @@ const Inventory = () => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
                             <label className="form-label required">Current Stock</label>
                             <input
@@ -390,9 +433,9 @@ const Inventory = () => {
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div className="form-group">
-                            <label className="form-label required">Unit Price ($)</label>
+                            <label className="form-label required">Unit Price (₹)</label>
                             <input
                                 type="number"
                                 name="unitPrice"
@@ -406,15 +449,23 @@ const Inventory = () => {
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Unit</label>
-                            <input
-                                type="text"
+                            <label className="form-label required">Unit</label>
+                            <select
                                 name="unit"
-                                className="form-input"
+                                className="form-select"
                                 value={formData.unit}
                                 onChange={handleChange}
-                                placeholder="e.g., pcs, kg, lbs"
-                            />
+                                required
+                            >
+                                <option value="pcs">Pieces (pcs)</option>
+                                <option value="kg">Kilograms (kg)</option>
+                                <option value="g">Grams (g)</option>
+                                <option value="l">Liters (l)</option>
+                                <option value="ml">Milliliters (ml)</option>
+                                <option value="packets">Packets</option>
+                                <option value="boxes">Boxes</option>
+                                <option value="dozens">Dozens</option>
+                            </select>
                         </div>
                     </div>
 
@@ -427,6 +478,90 @@ const Inventory = () => {
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Custom PO Modal */}
+            <Modal
+                isOpen={showCustomPOModal}
+                onClose={() => setShowCustomPOModal(false)}
+                title={`Generate Purchase Order (${selectedProducts.size} Items)`}
+                size="lg"
+            >
+                <div style={{ marginBottom: '1.5rem' }}>
+                    <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>Please verify the quantities for the selected products.</p>
+                    <div className="table-container">
+                        <table className="table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Vendor</th>
+                                    <th>Current Stock</th>
+                                    <th>Order Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {Array.from(selectedProducts).map(id => {
+                                    const product = products.find(p => p._id === id);
+                                    if (!product) return null;
+                                    return (
+                                        <tr key={product._id}>
+                                            <td>
+                                                <div className="font-medium">{product.name}</div>
+                                                <div className="text-xs text-muted">{product.sku}</div>
+                                            </td>
+                                            <td>{product.vendor?.name}</td>
+                                            <td>{product.currentStock}</td>
+                                            <td>
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    style={{ width: '80px', padding: '0.25rem 0.5rem' }}
+                                                    min="1"
+                                                    value={customPOQuantities[product._id] || 1}
+                                                    onChange={(e) => {
+                                                        const val = Math.max(1, parseInt(e.target.value) || 1);
+                                                        setCustomPOQuantities(prev => ({
+                                                            ...prev,
+                                                            [product._id]: val
+                                                        }));
+                                                    }}
+                                                />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={() => setShowCustomPOModal(false)}>
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-success"
+                        onClick={async () => {
+                            try {
+                                const { purchaseOrdersAPI } = await import('../services/api');
+                                const itemsToOrder = Array.from(selectedProducts).map(id => ({
+                                    productId: id,
+                                    quantity: customPOQuantities[id] || 1
+                                }));
+
+                                const response = await purchaseOrdersAPI.generateCustom(itemsToOrder);
+                                alert(response.data.message || 'PO generated successfully');
+                                setShowCustomPOModal(false);
+                                setSelectedProducts(new Set()); // Clear selection
+                            } catch (error) {
+                                console.error('Error generating Custom PO:', error);
+                                alert(error.response?.data?.message || 'Error generating custom PO');
+                            }
+                        }}
+                    >
+                        Generate POs
+                    </button>
+                </div>
             </Modal>
         </div>
     );

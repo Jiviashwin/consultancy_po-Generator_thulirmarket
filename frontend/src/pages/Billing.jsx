@@ -1,16 +1,25 @@
 
 import React, { useState, useEffect } from 'react';
-import { productsAPI, billingAPI } from '../services/api';
+import { productsAPI, billingAPI, paymentAPI } from '../services/api';
+import QRCode from 'react-qr-code';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const Billing = () => {
     const [products, setProducts] = useState([]);
     const [skuInput, setSkuInput] = useState('');
     const [currentBillItems, setCurrentBillItems] = useState([]);
     const [customerName, setCustomerName] = useState('');
+    const [customerPhone, setCustomerPhone] = useState('');
     const [paymentMethod, setPaymentMethod] = useState('CASH');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+    const [processingPayment, setProcessingPayment] = useState(false);
+
+    // QR Modal State
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [mockOrderDetails, setMockOrderDetails] = useState(null);
 
     useEffect(() => {
         fetchProducts();
@@ -31,7 +40,13 @@ const Billing = () => {
         e.preventDefault();
         setError('');
 
-        const product = products.find(p => p.sku === skuInput.toUpperCase() || p.sku === skuInput);
+        const scannedSku = skuInput.trim();
+        if (!scannedSku) {
+            setError('Please enter a valid SKU.');
+            return;
+        }
+
+        const product = products.find(p => p.sku === scannedSku.toUpperCase() || p.sku === scannedSku);
 
         if (!product) {
             setError('Product not found!');
@@ -62,6 +77,7 @@ const Billing = () => {
                 sku: product.sku,
                 name: product.name,
                 unitPrice: product.unitPrice,
+                unit: product.unit,
                 quantity: 1,
                 total: product.unitPrice
             }]);
@@ -98,9 +114,105 @@ const Billing = () => {
         return currentBillItems.reduce((sum, item) => sum + item.total, 0);
     };
 
+    const generatePDFBill = (billItems, total, customerName, cPhone, payMethod) => {
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFontSize(22);
+        doc.setFont("helvetica", "bold");
+        doc.text("Thulir Market", 105, 20, { align: "center" });
+        
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("GSTIN: 33XXXXX0000X1Z5", 105, 28, { align: "center" });
+        doc.text("123 Market Street, City, State 12345", 105, 34, { align: "center" });
+        doc.text(`Date: ${new Date().toLocaleString()}`, 14, 45);
+        
+        // Customer Info
+        if (customerName) {
+            doc.text(`Customer Name: ${customerName}`, 14, 55);
+            if (cPhone) doc.text(`Phone: ${cPhone}`, 14, 61);
+        }
+        
+        doc.text(`Payment Method: ${payMethod}`, 14, customerName ? 67 : 55);
+
+        // Table
+        const tableColumn = ["Item", "Qty", "Price", "Total"];
+        const tableRows = [];
+
+        billItems.forEach(item => {
+            const itemData = [
+                item.name,
+                `${item.quantity} ${item.unit || ''}`,
+                `Rs. ${item.unitPrice.toFixed(2)}`,
+                `Rs. ${item.total.toFixed(2)}`
+            ];
+            tableRows.push(itemData);
+        });
+
+        autoTable(doc, {
+            startY: customerName ? 75 : 65,
+            head: [tableColumn],
+            body: tableRows,
+            theme: 'grid',
+            headStyles: { fillColor: [16, 185, 129] },
+            styles: { fontSize: 10, cellPadding: 3 },
+            columnStyles: {
+                0: { cellWidth: 80 },
+                1: { cellWidth: 30, halign: 'center' },
+                2: { cellWidth: 30, halign: 'right' },
+                3: { cellWidth: 40, halign: 'right' },
+            }
+        });
+
+        // Totals Calculation (assuming 18% GST overall for this example)
+        const finalY = doc.lastAutoTable.finalY || 150;
+        const subtotal = total / 1.18; // Reverse engineer subtotal before 18% tax
+        const taxAmount = total - subtotal;
+
+        doc.setFontSize(10);
+        doc.text(`Subtotal: Rs. ${subtotal.toFixed(2)}`, 140, finalY + 10);
+        doc.text(`GST (18%): Rs. ${taxAmount.toFixed(2)}`, 140, finalY + 18);
+        
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`Grand Total: Rs. ${total.toFixed(2)}`, 140, finalY + 28);
+        
+        // Footer
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "italic");
+        doc.text("Thank you for shopping with us!", 105, finalY + 45, { align: "center" });
+
+        doc.save(`Invoice_ThulirMarket_${Date.now()}.pdf`);
+    };
+
     const handleCheckout = async () => {
         if (currentBillItems.length === 0) {
             setError('No items in the bill!');
+            return;
+        }
+
+        const cName = customerName.trim();
+        if (cName && cName.length < 2) {
+            setError('Customer Name must be at least 2 characters if provided.');
+            return;
+        }
+
+        const nameRegex = /^[a-zA-Z0-9\s]*$/;
+        if (cName && !nameRegex.test(cName)) {
+            setError('Customer Name can only contain alphanumeric characters and spaces.');
+            return;
+        }
+
+        const phoneRegex = /^[0-9]{10}$/;
+        if (customerPhone && !phoneRegex.test(customerPhone)) {
+            setError('Please enter a valid 10-digit phone number.');
+            return;
+        }
+
+        const validMethods = ['CASH', 'ONLINE', 'CARD'];
+        if (!validMethods.includes(paymentMethod)) {
+            setError('Please select a valid payment method.');
             return;
         }
 
@@ -114,31 +226,97 @@ const Billing = () => {
                     sku: item.sku,
                     quantity: item.quantity
                 })),
-                customerName,
+                customerName: cName,
+                customerPhone: customerPhone,
                 paymentMethod
             };
 
-            const response = await billingAPI.create(billData);
+            if (paymentMethod === 'ONLINE' || paymentMethod === 'CARD') {
+                // Mock Payment Processing for Demo/Project
+                const orderResponse = await paymentAPI.createOrder(billData);
+                if (!orderResponse.data.success) {
+                    throw new Error(orderResponse.data.message || 'Error creating payment order');
+                }
 
-            if (response.data.success) {
-                setSuccessMessage('Bill created successfully!');
-                setCurrentBillItems([]);
-                setCustomerName('');
-                setPaymentMethod('CASH');
-                fetchProducts(); // Refresh stock
+                // Show QR Code Modal
+                const totalAmount = calculateTotal();
+                setMockOrderDetails({
+                    orderId: orderResponse.data.order.id,
+                    amount: totalAmount,
+                    billData: billData
+                });
+                setShowQRModal(true);
+
+            } else {
+                // Cash / Offline Flow
+                const response = await billingAPI.create(billData);
+
+                if (response.data.success) {
+                    setSuccessMessage('Bill created successfully!');
+                    generatePDFBill(currentBillItems, calculateTotal(), cName, customerPhone, paymentMethod);
+                    setCurrentBillItems([]);
+                    setCustomerName('');
+                    setCustomerPhone('');
+                    setPaymentMethod('CASH');
+                    fetchProducts(); // Refresh stock
+                }
             }
         } catch (error) {
             console.error('Checkout error:', error);
-            setError(error.response?.data?.message || 'Error processing bill');
+            setError(error.message || error.response?.data?.message || 'Error processing bill');
         } finally {
             setLoading(false);
         }
     };
 
+    const handleMockPaymentSuccess = async () => {
+        if (!mockOrderDetails) return;
+
+        setShowQRModal(false);
+        setProcessingPayment(true);
+
+        // Simulate 1.5 seconds network delay for verification
+        setTimeout(async () => {
+            try {
+                const verifyData = {
+                    razorpay_order_id: mockOrderDetails.orderId,
+                    razorpay_payment_id: `pay_demo_${Date.now()}`,
+                    razorpay_signature: "mock_signature_valid",
+                    billData: mockOrderDetails.billData
+                };
+
+                const verifyRes = await paymentAPI.verifyPayment(verifyData);
+                if (verifyRes.data.success) {
+                    setSuccessMessage('Payment successful & Bill created!');
+                    generatePDFBill(currentBillItems, calculateTotal(), customerName, customerPhone, paymentMethod);
+                    setCurrentBillItems([]);
+                    setCustomerName('');
+                    setCustomerPhone('');
+                    setPaymentMethod('CASH');
+                    fetchProducts(); // Refresh stock
+                } else {
+                    setError('Payment verification failed.');
+                }
+            } catch (err) {
+                console.error('Verify error:', err);
+                setError(err.response?.data?.message || 'Payment Verification Error');
+            } finally {
+                setProcessingPayment(false);
+                setMockOrderDetails(null);
+            }
+        }, 1500);
+    };
+
+    const handleMockPaymentCancel = () => {
+        setShowQRModal(false);
+        setMockOrderDetails(null);
+        setError('Payment was cancelled by user.');
+    };
+
     return (
         <div style={{ minHeight: '100vh', background: '#f3f4f6' }}>
-            <main style={{ maxWidth: '1400px', margin: '2rem auto', padding: '0 2rem' }}>
-                <div style={{ display: 'flex', gap: '2rem' }}>
+            <main style={{ maxWidth: '1400px', margin: '2rem auto', padding: '0 2rem', filter: (showQRModal || processingPayment) ? 'blur(2px)' : 'none', transition: 'filter 0.3s' }}>
+                <div className="responsive-flex" style={{ gap: '2rem' }}>
                     {/* Left Side: Billing Form */}
                     <div style={{ flex: 2 }}>
                         <div style={{ background: 'white', borderRadius: '12px', padding: '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
@@ -198,7 +376,7 @@ const Billing = () => {
                                                                 onClick={() => updateQuantity(item.sku, item.quantity - 1)}
                                                                 style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid #d1d5db', cursor: 'pointer' }}
                                                             >-</button>
-                                                            <span>{item.quantity}</span>
+                                                            <span>{item.quantity} {item.unit}</span>
                                                             <button
                                                                 onClick={() => updateQuantity(item.sku, item.quantity + 1)}
                                                                 style={{ padding: '2px 8px', borderRadius: '4px', border: '1px solid #d1d5db', cursor: 'pointer' }}
@@ -221,7 +399,7 @@ const Billing = () => {
 
                             {/* Customer & Checkout */}
                             <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '2rem' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                                <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
                                     <div>
                                         <label className="form-label">Customer Name (Optional)</label>
                                         <input
@@ -233,6 +411,19 @@ const Billing = () => {
                                         />
                                     </div>
                                     <div>
+                                        <label className="form-label">Customer Phone (Optional)</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={customerPhone}
+                                            onChange={(e) => {
+                                                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                setCustomerPhone(value);
+                                            }}
+                                            placeholder="10-digit number"
+                                        />
+                                    </div>
+                                    <div>
                                         <label className="form-label">Payment Method</label>
                                         <select
                                             className="form-input"
@@ -240,14 +431,13 @@ const Billing = () => {
                                             onChange={(e) => setPaymentMethod(e.target.value)}
                                         >
                                             <option value="CASH">Cash</option>
+                                            <option value="ONLINE">Online</option>
                                             <option value="CARD">Card</option>
-                                            <option value="UPI">UPI</option>
-                                            <option value="OTHER">Other</option>
                                         </select>
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb', padding: '1.5rem', borderRadius: '8px' }}>
+                                <div className="responsive-flex" style={{ justifyContent: 'space-between', alignItems: 'center', background: '#f9fafb', padding: '1.5rem', borderRadius: '8px', gap: '1rem' }}>
                                     <div>
                                         <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Total Amount</div>
                                         <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981' }}>₹{calculateTotal()}</div>
@@ -287,7 +477,7 @@ const Billing = () => {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: '#6b7280', marginTop: '0.25rem' }}>
                                             <span>SKU: {product.sku}</span>
                                             <span style={{ color: product.currentStock > 0 ? '#059669' : '#ef4444' }}>
-                                                Stock: {product.currentStock}
+                                                Stock: {product.currentStock} {product.unit}
                                             </span>
                                         </div>
                                     </div>
@@ -297,6 +487,71 @@ const Billing = () => {
                     </div>
                 </div>
             </main>
+
+            {/* Mock QR Code Modal */}
+            {showQRModal && mockOrderDetails && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+                    <div style={{ background: 'white', padding: '2.5rem', borderRadius: '20px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', minWidth: '350px', animation: 'scaleInQR 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#111827', margin: 0 }}>Scan to Pay</h2>
+                            <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>Amount: <span style={{ fontWeight: 700, color: '#10b981' }}>₹{mockOrderDetails.amount}</span></p>
+                        </div>
+
+                        <div style={{ background: '#f9fafb', padding: '1.5rem', borderRadius: '16px', display: 'inline-block', border: '1px solid #e5e7eb', marginBottom: '2rem' }}>
+                            <QRCode
+                                value={` UPI://pay?pa=demo@ybl&pn=ThulirMarket&am=${mockOrderDetails.amount}&cu=INR`}
+                                size={200}
+                                level="H"
+                            />
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '1.5rem' }}>
+                            <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem', fontWeight: 500 }}>Demo Controls (Click to Simulate App Payment)</p>
+                            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                                <button
+                                    onClick={handleMockPaymentCancel}
+                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #e5e7eb', background: 'white', color: '#374151', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s' }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#ef4444'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'white'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleMockPaymentSuccess}
+                                    style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#10b981', color: 'white', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.3)' }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
+                                >
+                                    Simulate Success
+                                </button>
+                            </div>
+                        </div>
+
+                        <style>
+                            {`
+                            @keyframes scaleInQR { 0% { transform: scale(0.8) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+                            `}
+                        </style>
+                    </div>
+                </div>
+            )}
+
+            {/* Mock Payment Gateway Processing Overlay */}
+            {processingPayment && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ background: 'white', padding: '3rem 2rem', borderRadius: '16px', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', minWidth: '320px', animation: 'scaleIn 0.3s ease-out' }}>
+                        <div style={{ border: '4px solid #f3f3f3', borderTop: '4px solid #10b981', borderRadius: '50%', width: '48px', height: '48px', animation: 'spin 1s linear infinite', margin: '0 auto 1.5rem' }} />
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', marginBottom: '0.5rem' }}>Verifying Payment...</h3>
+                        <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Waiting for bank confirmation</p>
+                        <style>
+                            {`
+                            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                            @keyframes scaleIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+                            `}
+                        </style>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
