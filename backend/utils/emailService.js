@@ -1,56 +1,49 @@
-import nodemailer from 'nodemailer';
-// Force default import for some ESM environments where nodemailer might be exported differently
-const { createTransport } = nodemailer;
+import { Resend } from 'resend';
+import fs from 'fs';
 
 /**
- * Create email transporter using SMTP configuration
+ * Email Service using Resend API (works on Render free tier)
+ * Resend uses HTTPS, not SMTP — avoids Render's outbound port blocks
  */
-const createTransporter = () => {
-    // Check if SMTP is configured
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.warn('⚠️  SMTP not configured. Email sending will not work.');
+
+const getResend = () => {
+    if (!process.env.RESEND_API_KEY) {
+        console.warn('⚠️  RESEND_API_KEY not set. Email sending will not work.');
         return null;
     }
-
-    return createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT) || 587,
-        secure: process.env.SMTP_SECURE === 'true',
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-        }
-    });
+    return new Resend(process.env.RESEND_API_KEY);
 };
+
+const FROM_ADDRESS = `${process.env.STORE_NAME || 'Thulir Market'} <onboarding@resend.dev>`;
 
 /**
  * Send Purchase Order email to vendor
- * @param {Object} options - Email options
- * @param {String} options.vendorEmail - Vendor's email address
- * @param {String} options.vendorName - Vendor's name
- * @param {String} options.poNumber - Purchase order number
- * @param {String} options.pdfPath - Path to PDF attachment
- * @param {Number} options.totalAmount - Total order amount
- * @returns {Promise} - Resolves when email is sent
  */
 const sendPurchaseOrderEmail = async (options) => {
-    const transporter = createTransporter();
-
-    if (!transporter) {
-        throw new Error('SMTP not configured. Please set SMTP credentials in .env file.');
-    }
+    const resend = getResend();
+    if (!resend) throw new Error('RESEND_API_KEY not configured.');
 
     const { vendorEmail, vendorName, poNumber, pdfPath, totalAmount } = options;
 
-    const mailOptions = {
-        from: `"${process.env.STORE_NAME || 'Thulir Market'}" <${process.env.SMTP_USER}>`,
-        to: vendorEmail,
+    // Read PDF file for attachment
+    let attachments = [];
+    if (pdfPath && fs.existsSync(pdfPath)) {
+        const pdfBuffer = fs.readFileSync(pdfPath);
+        attachments = [{
+            filename: `${poNumber}.pdf`,
+            content: pdfBuffer
+        }];
+    }
+
+    const { data, error } = await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: [vendorEmail],
         subject: `Purchase Order ${poNumber} from ${process.env.STORE_NAME || 'Thulir Market'}`,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #333;">New Purchase Order</h2>
         <p>Dear ${vendorName},</p>
-        <p>Please find attached Purchase Order <strong>${poNumber}</strong> with a total amount of <strong>₹${totalAmount.toFixed(2)}</strong>.</p>
+        <p>Please find attached Purchase Order <strong>${poNumber}</strong> with a total amount of <strong>&#8377;${totalAmount.toFixed(2)}</strong>.</p>
         <p>Please review the order details and confirm the delivery date at your earliest convenience.</p>
         <hr style="border: none; border-top: 1px solid #ddd; margin: 20px 0;">
         <p style="color: #666; font-size: 12px;">
@@ -59,40 +52,25 @@ const sendPurchaseOrderEmail = async (options) => {
         </p>
       </div>
     `,
-        attachments: [
-            {
-                filename: `${poNumber}.pdf`,
-                path: pdfPath
-            }
-        ]
-    };
+        attachments
+    });
 
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ Email sent to ${vendorEmail}: ${info.messageId}`);
-        // Preview only available when sending through an Ethereal account
-        console.log(`📬 Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
-        return info;
-    } catch (error) {
-        console.error(`❌ Email sending failed: ${error.message}`);
-        throw error;
+    if (error) {
+        console.error('❌ Email sending failed:', error);
+        throw new Error(error.message);
     }
+
+    console.log(`✅ Email sent to ${vendorEmail}: ${data.id}`);
+    return data;
 };
 
 /**
  * Send Low Stock Alert email to admin
- * @param {Object} options - Email options
- * @param {String} options.productName - Product name
- * @param {String} options.sku - Product SKU
- * @param {Number} options.currentStock - Current stock level
- * @param {Number} options.reorderPoint - Reorder point
- * @returns {Promise} - Resolves when email is sent
  */
 const sendLowStockAlert = async (options) => {
-    const transporter = createTransporter();
-
-    if (!transporter) {
-        console.warn('⚠️ SMTP not configured. Low stock alert not sent.');
+    const resend = getResend();
+    if (!resend) {
+        console.warn('⚠️ RESEND_API_KEY not set. Low stock alert not sent.');
         return;
     }
 
@@ -104,9 +82,9 @@ const sendLowStockAlert = async (options) => {
         return;
     }
 
-    const mailOptions = {
-        from: `"${process.env.STORE_NAME || 'Thulir Market'}" <${process.env.SMTP_USER}>`,
-        to: adminEmail,
+    const { error } = await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: [adminEmail],
         subject: `⚠️ Low Stock Alert: ${productName} (${sku})`,
         html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e53e3e; border-radius: 8px; overflow: hidden;">
@@ -123,16 +101,14 @@ const sendLowStockAlert = async (options) => {
         </div>
       </div>
     `
-    };
+    });
 
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`✅ Low stock alert sent to ${adminEmail}: ${info.messageId}`);
-        return info;
-    } catch (error) {
-        console.error(`❌ Low stock email failed: ${error.message}`);
-        // Don't throw error to prevent blocking the billing process
+    if (error) {
+        console.error('❌ Low stock email failed:', error);
+        return;
     }
+
+    console.log(`✅ Low stock alert sent to ${adminEmail}`);
 };
 
 export { sendPurchaseOrderEmail, sendLowStockAlert };
