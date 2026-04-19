@@ -16,7 +16,7 @@ pipeline {
     environment {
         // GitHub Container Registry
         REGISTRY        = "ghcr.io"
-        GITHUB_USERNAME = "Jiviashwin"
+        GITHUB_USERNAME = "jiviashwin"   // must be lowercase for Docker image names
 
         BACKEND_IMAGE   = "${REGISTRY}/${GITHUB_USERNAME}/po-generator-backend"
         FRONTEND_IMAGE  = "${REGISTRY}/${GITHUB_USERNAME}/po-generator-frontend"
@@ -159,44 +159,25 @@ pipeline {
             }
         }
 
-        // ── Stage 6: Deploy to Kubernetes ─────────────────────
+        // ── Stage 6: Deploy to Kubernetes (disabled — add when Minikube is ready) ─
+        // Uncomment this stage when you set up Minikube and add kubeconfig credential
+        /*
         stage('Deploy to Kubernetes') {
             steps {
-                echo "☸️  Deploying to Kubernetes (Minikube)..."
+                echo "☸️  Deploying to Kubernetes..."
                 withCredentials([file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                     sh """
                         export KUBECONFIG=${KUBECONFIG_FILE}
-
-                        # Apply all manifests (namespace first, then rest)
-                        kubectl apply -f k8s/namespace.yaml
-                        kubectl apply -f k8s/configmap.yaml
-                        kubectl apply -f k8s/secrets.yaml
-                        kubectl apply -f k8s/uploads-pvc.yaml
-                        kubectl apply -f k8s/backend-service.yaml
-                        kubectl apply -f k8s/frontend-service.yaml
-                        kubectl apply -f k8s/backend-deployment.yaml
-                        kubectl apply -f k8s/frontend-deployment.yaml
-                        kubectl apply -f k8s/ingress.yaml
-
-                        # Rolling update — set the new image tag
-                        kubectl set image deployment/backend \
-                          backend=${BACKEND_IMAGE}:${IMAGE_TAG} \
-                          -n ${K8S_NAMESPACE}
-
-                        kubectl set image deployment/frontend \
-                          frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} \
-                          -n ${K8S_NAMESPACE}
-
-                        # Wait for rollout to complete
+                        kubectl apply -f k8s/
+                        kubectl set image deployment/backend backend=${BACKEND_IMAGE}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
+                        kubectl set image deployment/frontend frontend=${FRONTEND_IMAGE}:${IMAGE_TAG} -n ${K8S_NAMESPACE}
                         kubectl rollout status deployment/backend  -n ${K8S_NAMESPACE} --timeout=120s
                         kubectl rollout status deployment/frontend -n ${K8S_NAMESPACE} --timeout=120s
-
-                        echo "✅ Deployment complete!"
-                        kubectl get pods -n ${K8S_NAMESPACE}
                     """
                 }
             }
         }
+        */
     } // end stages
 
     // ── Post-build actions ────────────────────────────────────

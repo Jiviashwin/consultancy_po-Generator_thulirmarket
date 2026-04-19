@@ -13,7 +13,10 @@ version: "3.9"
 services:
   # ── Jenkins Controller ───────────────────────────────────
   jenkins:
-    image: jenkins/jenkins:lts-jdk21
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jenkins-custom:latest
     container_name: jenkins-server
     restart: unless-stopped
     privileged: true          # Required for Docker-in-Docker
