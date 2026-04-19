@@ -1,0 +1,60 @@
+# ============================================================
+# PO Generator — Docker Compose (Local Development & Testing)
+# ============================================================
+# Usage:
+#   docker-compose up --build          # start everything
+#   docker-compose down -v             # stop & remove volumes
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ── Backend (Node.js / Express) ──────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: po-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      NODE_ENV: production
+      PORT: "5002"
+    ports:
+      - "5002:5002"
+    volumes:
+      - uploads_data:/app/uploads
+    networks:
+      - po-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── Frontend (React / Vite → Nginx) ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: po-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - po-network
+
+# ── Named Volumes ─────────────────────────────────────────
+volumes:
+  uploads_data:
+    driver: local
+
+# ── Networks ──────────────────────────────────────────────
+networks:
+  po-network:
+    driver: bridge

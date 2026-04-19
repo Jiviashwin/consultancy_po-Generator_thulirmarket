@@ -31,3 +31,14 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
+
+# ── DevOps / Docker / Kubernetes ─────────────────────────
+# IMPORTANT: If you fill k8s/secrets.yaml with real values,
+# rename it to k8s/secrets.local.yaml and add that here:
+k8s/secrets.local.yaml
+
+# Jenkins data
+jenkins/jenkins_home/
+
+# Minikube
+.minikube/

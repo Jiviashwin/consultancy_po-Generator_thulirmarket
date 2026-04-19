@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: po-generator
+  labels:
+    app.kubernetes.io/name: po-generator
+    app.kubernetes.io/managed-by: kubectl

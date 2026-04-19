@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: po-generator-config
+  namespace: po-generator
+  labels:
+    app.kubernetes.io/name: po-generator
+data:
+  NODE_ENV: "production"
+  PORT: "5002"
+  FRONTEND_URL: "http://po-generator.local"
+
+  # SMTP non-sensitive config
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_SECURE: "false"
+
+  # Store information (non-sensitive)
+  STORE_NAME: "SuperMart Retail Store"
+  STORE_ADDRESS: "123 Main Street, City, State, ZIP"
+  STORE_EMAIL: "admin@supermart.com"
+  STORE_PHONE: "+1-234-567-8900"
