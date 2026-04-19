@@ -75,8 +75,17 @@ const PurchaseOrders = () => {
         }
     };
 
-    const handleDownloadPDF = (poId) => {
-        window.open(purchaseOrdersAPI.getPDF(poId), '_blank');
+    const handleDownloadPDF = async (poId) => {
+        try {
+            const response = await purchaseOrdersAPI.getPDF(poId);
+            const blob = new Blob([response.data], { type: 'application/pdf' });
+            const url = window.URL.createObjectURL(blob);
+            window.open(url, '_blank');
+            // Revoke the object URL after a short delay to free memory
+            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+        } catch (error) {
+            alert(error.response?.data?.message || 'Error downloading PDF');
+        }
     };
 
     const handleUpdateStatus = async (poId, status) => {
