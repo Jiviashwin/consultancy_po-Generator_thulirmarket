@@ -28,7 +28,7 @@ spec:
       containers:
         - name: backend
           # Updated by Jenkins: ghcr.io/<YOUR_GITHUB_USERNAME>/po-generator-backend:<tag>
-          image: ghcr.io/Jiviashwin/po-generator-backend:latest
+          image: ghcr.io/jiviashwin/po-generator-backend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5002

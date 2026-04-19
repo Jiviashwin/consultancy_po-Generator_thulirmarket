@@ -24,15 +24,27 @@ connectDB();
 // Middleware
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, etc.)
+        // Allow requests with no origin (mobile apps, Postman, server-to-server)
         if (!origin) return callback(null, true);
 
         if (process.env.NODE_ENV === 'production') {
             const allowedOrigin = process.env.FRONTEND_URL;
-            // Allow the configured frontend URL OR any Vercel preview URL
-            if (origin === allowedOrigin || origin.endsWith('.vercel.app')) {
-                return callback(null, true);
-            }
+
+            // Allow: configured FRONTEND_URL
+            if (origin === allowedOrigin) return callback(null, true);
+
+            // Allow: Vercel preview deployments
+            if (origin.endsWith('.vercel.app')) return callback(null, true);
+
+            // Allow: Minikube tunnel (127.0.0.1 with any port)
+            if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
+
+            // Allow: Minikube IP range (192.168.x.x with any port)
+            if (/^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin)) return callback(null, true);
+
+            // Allow: local K8s ingress hostname
+            if (origin === 'http://po-generator.local') return callback(null, true);
+
             return callback(new Error(`CORS: origin ${origin} not allowed`));
         }
         // Development: allow all
