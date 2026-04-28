@@ -33,6 +33,12 @@ app.use(cors({
             // Allow: configured FRONTEND_URL
             if (origin === allowedOrigin) return callback(null, true);
 
+            // Allow: local Docker / nginx on port 80
+            if (origin === 'http://localhost') return callback(null, true);
+
+            // Allow: local dev server on port 5173
+            if (origin === 'http://localhost:5173') return callback(null, true);
+
             // Allow: Vercel preview deployments
             if (origin.endsWith('.vercel.app')) return callback(null, true);
 

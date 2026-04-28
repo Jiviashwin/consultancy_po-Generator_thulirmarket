@@ -1,13 +1,15 @@
 import axios from 'axios';
 
 // Smart URL selection:
-// - Browser on Mac (localhost) → always use localhost:5002
-// - iPhone / Capacitor (non-localhost) → use VITE_API_URL from .env
-const isLocalBrowser = typeof window !== 'undefined' && window.location.hostname === 'localhost';
-const BASE_URL = isLocalBrowser
-    ? 'http://localhost:5002/api'
-    : (import.meta.env.VITE_API_URL || `http://${window.location.hostname}:5002/api`);
+// - Dev server (port 5173) → hit backend directly on localhost:5002
+// - Docker / K8s (port 80)  → use nginx proxy via relative /api path (no CORS)
+// - iPhone / Capacitor       → use VITE_API_URL from .env
+const port = typeof window !== 'undefined' ? window.location.port : '';
+const isDevServer = port === '5173';
 
+const BASE_URL = isDevServer
+    ? 'http://localhost:5002/api'
+    : (import.meta.env.VITE_API_URL || '/api');
 
 // Create axios instance with base configuration
 const api = axios.create({

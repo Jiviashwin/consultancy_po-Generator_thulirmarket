@@ -33,12 +33,26 @@ yarn-error.log*
 *.sw?
 
 # ── DevOps / Docker / Kubernetes ─────────────────────────
-# IMPORTANT: If you fill k8s/secrets.yaml with real values,
-# rename it to k8s/secrets.local.yaml and add that here:
+# IMPORTANT: Never commit k8s/secrets.yaml with real values.
+# Use k8s/secrets.local.yaml instead (gitignored below):
 k8s/secrets.local.yaml
 
-# Jenkins data
+# Jenkins data (persistent volume — never commit this)
 jenkins/jenkins_home/
+jenkins/*.log
 
-# Minikube
+# Minikube local state
 .minikube/
+
+# ── Terraform ─────────────────────────────────────────────
+# Local provider plugins/cache
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+
+# State files (contain secrets in plaintext — NEVER commit)
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfstate.*.backup
+
+# Your local variable values (copy from terraform.tfvars.example)
+terraform/terraform.tfvars

@@ -1,0 +1,36 @@
+# ============================================================
+# terraform.tfvars — PO Generator (TEMPLATE)
+# ============================================================
+# Copy this file, fill in real values, save as terraform.tfvars
+# THIS FILE IS GITIGNORED — never commit real secrets!
+#
+# Usage:
+#   cp terraform.tfvars.example terraform.tfvars
+#   # Edit terraform.tfvars with your real credentials
+#   terraform apply
+# ============================================================
+
+# ── Cluster ─────────────────────────────────────────────────
+kubeconfig_path = "~/.kube/config"
+kube_context    = "minikube"
+
+# ── Application ─────────────────────────────────────────────
+namespace        = "po-generator"
+github_username  = "jiviashwin"
+image_tag        = "latest"
+backend_replicas = 2
+frontend_replicas = 2
+ingress_host     = "po-generator.local"
+
+# ── Secrets (replace with your real values) ─────────────────
+mongodb_uri    = "mongodb+srv://USER:PASS@cluster0.xxxx.mongodb.net/po-generator?retryWrites=true&w=majority"
+jwt_secret     = "your-jwt-secret-at-least-32-characters-long"
+session_secret = "your-session-secret-at-least-32-characters-long"
+smtp_user      = "your-email@gmail.com"
+smtp_pass      = "your-gmail-app-password"
+
+# ── Store Info ───────────────────────────────────────────────
+store_name    = "SuperMart Retail Store"
+store_address = "123 Main Street, City, State, ZIP"
+store_email   = "admin@supermart.com"
+store_phone   = "+1-234-567-8900"
