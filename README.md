@@ -1,4 +1,4 @@
-# Multi-Vendor Purchase Order Generator
+# Multi-Vendor Purchase Order Generator(changed)
 
 A production-ready web application for automating purchase order generation for supermarket owners. The system automatically detects low-stock items, groups them by vendor, and generates professional PDF purchase orders with email and WhatsApp delivery options.
 
