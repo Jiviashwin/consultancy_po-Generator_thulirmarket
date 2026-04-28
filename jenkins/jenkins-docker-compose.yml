@@ -1,0 +1,46 @@
+# ============================================================
+# Local Jenkins Setup with Docker-in-Docker (DinD)
+# ============================================================
+# Usage:
+#   cd jenkins/
+#   docker-compose up -d
+#   docker exec jenkins-server cat /var/jenkins_home/secrets/initialAdminPassword
+#   Open: http://localhost:8080
+# ============================================================
+
+version: "3.9"
+
+services:
+  # ── Jenkins Controller ───────────────────────────────────
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: jenkins-custom:latest
+    container_name: jenkins-server
+    restart: unless-stopped
+    privileged: true          # Required for Docker-in-Docker
+    user: root
+    ports:
+      - "8080:8080"           # Jenkins Web UI
+      - "50000:50000"         # Jenkins agent port
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Mount host Docker socket so Jenkins can build images
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Skip Jenkins initial setup wizard (optional)
+      # JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
+      JENKINS_OPTS: "--httpPort=8080"
+    networks:
+      - jenkins-network
+
+# ── Named Volumes ─────────────────────────────────────────
+volumes:
+  jenkins_home:
+    driver: local
+
+# ── Networks ──────────────────────────────────────────────
+networks:
+  jenkins-network:
+    driver: bridge

@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PO Generator — DevOps Workflow Visualization</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #060c1a;
+      --surface: #0d1628;
+      --surface2: #111d35;
+      --border: rgba(99,179,237,.12);
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-orange: #f59e0b;
+      --accent-purple: #8b5cf6;
+      --accent-pink: #ec4899;
+      --accent-red: #ef4444;
+      --jenkins: #d33833;
+      --docker: #0db7ed;
+      --k8s: #326ce5;
+      --ghcr: #6e40c9;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Starfield background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(59,130,246,.15) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(139,92,246,.12) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── HERO ───────────────────────────────────── */
+    .hero {
+      text-align: center;
+      padding: 3rem 0 2.5rem;
+      animation: fadeInDown .8s ease both;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: rgba(59,130,246,.1);
+      border: 1px solid rgba(59,130,246,.3);
+      border-radius: 100px;
+      padding: .35rem 1rem;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--accent-blue);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.5rem);
+      font-weight: 900;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #fff 30%, #93c5fd 70%, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+    }
+
+    .hero p {
+      color: var(--muted);
+      font-size: 1.05rem;
+      max-width: 640px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ── TECH STACK BADGES ───────────────────────── */
+    .stack-row {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin: 2rem 0 3rem;
+      flex-wrap: wrap;
+      animation: fadeIn .9s ease .2s both;
+    }
+
+    .stack-badge {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .6rem 1.2rem;
+      border-radius: 12px;
+      border: 1px solid;
+      font-size: .875rem;
+      font-weight: 600;
+      transition: transform .2s, box-shadow .2s;
+      cursor: default;
+    }
+    .stack-badge:hover { transform: translateY(-2px); }
+    .stack-badge.jenkins { background: rgba(211,56,51,.12); border-color: rgba(211,56,51,.4); color: #ff6b6b; box-shadow: 0 4px 20px rgba(211,56,51,.15); }
+    .stack-badge.docker  { background: rgba(13,183,237,.1); border-color: rgba(13,183,237,.35); color: #38bdf8; box-shadow: 0 4px 20px rgba(13,183,237,.12); }
+    .stack-badge.k8s     { background: rgba(50,108,229,.12); border-color: rgba(50,108,229,.35); color: #7da3fa; box-shadow: 0 4px 20px rgba(50,108,229,.15); }
+    .stack-badge.ghcr    { background: rgba(110,64,201,.12); border-color: rgba(110,64,201,.35); color: #c084fc; box-shadow: 0 4px 20px rgba(110,64,201,.12); }
+    .stack-badge.node    { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.3); color: #34d399; box-shadow: 0 4px 20px rgba(16,185,129,.1); }
+    .stack-badge.react   { background: rgba(6,182,212,.1); border-color: rgba(6,182,212,.3); color: #67e8f9; box-shadow: 0 4px 20px rgba(6,182,212,.1); }
+
+    .stack-icon { font-size: 1.1rem; }
+
+    /* ── SECTION HEADER ──────────────────────────── */
+    .section-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .section-label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .5rem;
+    }
+    .section-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    /* ── PIPELINE FLOW ───────────────────────────── */
+    .pipeline-wrapper {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      margin-bottom: 3rem;
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn 1s ease .3s both;
+    }
+
+    .pipeline-wrapper::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--jenkins), var(--docker), var(--ghcr), var(--k8s));
+    }
+
+    /* Trigger → stages row */
+    .pipeline-flow {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      overflow-x: auto;
+      padding-bottom: 1rem;
+    }
+
+    .flow-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 120px;
+    }
+
+    .flow-connector {
+      display: flex;
+      align-items: center;
+      align-self: flex-start;
+      margin-top: 28px;
+    }
+
+    .flow-line {
+      width: 30px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(99,179,237,.35), rgba(99,179,237,.7));
+      position: relative;
+    }
+    .flow-line::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: -4px;
+      border-left: 8px solid rgba(99,179,237,.7);
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+
+    .stage-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .5rem;
+      padding: .75rem .5rem;
+      border-radius: 14px;
+      border: 1.5px solid var(--border);
+      background: var(--surface2);
+      transition: transform .2s, border-color .2s, box-shadow .2s;
+      cursor: pointer;
+      width: 105px;
+      text-align: center;
+      position: relative;
+    }
+    .stage-node:hover {
+      transform: translateY(-4px);
+      border-color: currentColor;
+      box-shadow: 0 8px 30px rgba(0,0,0,.4);
+    }
+
+    .stage-icon { font-size: 1.5rem; }
+    .stage-name {
+      font-size: .62rem;
+      font-weight: 700;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      line-height: 1.3;
+    }
+    .stage-sub {
+      font-size: .55rem;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    .stage-node.checkout   { color: #a78bfa; border-color: rgba(167,139,250,.25); }
+    .stage-node.install    { color: #34d399; border-color: rgba(52,211,153,.25); }
+    .stage-node.test       { color: #fbbf24; border-color: rgba(251,191,36,.25); }
+    .stage-node.build-img  { color: #38bdf8; border-color: rgba(56,189,248,.25); }
+    .stage-node.push       { color: #c084fc; border-color: rgba(192,132,252,.25); }
+    .stage-node.deploy     { color: #4ade80; border-color: rgba(74,222,128,.25); }
+    .stage-node.health     { color: #f87171; border-color: rgba(248,113,113,.25); }
+
+    .stage-node.active-pulse {
+      animation: pulse-border 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-border {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,.4); }
+      50% { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+    }
+
+    /* ── ARCHITECTURE GRID ───────────────────────── */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    @media (max-width: 900px) {
+      .arch-grid { grid-template-columns: 1fr; }
+    }
+
+    .arch-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform .2s, border-color .2s;
+      animation: fadeIn 1s ease .4s both;
+    }
+    .arch-card:hover {
+      transform: translateY(-3px);
+    }
+
+    .arch-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      border-radius: 16px 16px 0 0;
+    }
+    .arch-card.jenkins-card::before { background: linear-gradient(90deg, #d33833, #ff6b6b); }
+    .arch-card.docker-card::before  { background: linear-gradient(90deg, #0db7ed, #38bdf8); }
+    .arch-card.k8s-card::before     { background: linear-gradient(90deg, #326ce5, #7da3fa); }
+
+    .arch-card-header {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .arch-card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .jenkins-card .arch-card-icon { background: rgba(211,56,51,.15); }
+    .docker-card  .arch-card-icon { background: rgba(13,183,237,.15); }
+    .k8s-card     .arch-card-icon { background: rgba(50,108,229,.15); }
+
+    .arch-card-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #fff;
+    }
+    .arch-card-subtitle {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: .1rem;
+    }
+
+    .feature-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: .65rem;
+      font-size: .83rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .feature-list li .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+    .jenkins-card .dot { background: #ff6b6b; }
+    .docker-card  .dot { background: #38bdf8; }
+    .k8s-card     .dot { background: #7da3fa; }
+
+    .feature-list li strong { color: var(--text); }
+
+    /* ── FULL WORKFLOW DIAGRAM ───────────────────── */
+    .workflow-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem;
+      margin-bottom: 3rem;
+      animation: fadeIn 1s ease .5s both;
+    }
+
+    .workflow-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: .5rem;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+
+    .workflow-desc {
+      color: var(--muted);
+      font-size: .88rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    /* Main vertical flow */
+    .vflow {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .vflow-step {
+      display: flex;
+      gap: 1.5rem;
+      position: relative;
+    }
+
+    .vflow-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 52px;
+      flex-shrink: 0;
+    }
+
+    .vflow-circle {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      border: 2px solid;
+      z-index: 1;
+      transition: transform .2s;
+    }
+    .vflow-step:hover .vflow-circle { transform: scale(1.08); }
+
+    .vflow-line-seg {
+      width: 2px;
+      flex: 1;
+      min-height: 24px;
+      background: linear-gradient(to bottom, rgba(99,179,237,.4), rgba(99,179,237,.1));
+      margin: 4px 0;
+    }
+
+    .vflow-content {
+      flex: 1;
+      padding-bottom: 2rem;
+    }
+
+    .vflow-content-inner {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.2rem 1.5rem;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .vflow-step:hover .vflow-content-inner {
+      border-color: rgba(99,179,237,.3);
+      box-shadow: 0 4px 24px rgba(0,0,0,.3);
+    }
+
+    .vflow-step-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: .3rem;
+    }
+
+    .vflow-step-desc {
+      font-size: .83rem;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: .75rem;
+    }
+
+    .code-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      background: rgba(0,0,0,.4);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 8px;
+      padding: .35rem .75rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      color: #93c5fd;
+      margin: .2rem .2rem 0 0;
+      display: inline-block;
+    }
+
+    /* step colours */
+    .step-dev    { --sc: #a78bfa; --sbg: rgba(167,139,250,.15); }
+    .step-git    { --sc: #f97316; --sbg: rgba(249,115,22,.12); }
+    .step-jen    { --sc: #ff6b6b; --sbg: rgba(255,107,107,.12); }
+    .step-doc    { --sc: #38bdf8; --sbg: rgba(56,189,248,.12); }
+    .step-ghcr   { --sc: #c084fc; --sbg: rgba(192,132,252,.12); }
+    .step-k8s    { --sc: #4ade80; --sbg: rgba(74,222,128,.12); }
+    .step-mon    { --sc: #fbbf24; --sbg: rgba(251,191,36,.12); }
+
+    .vflow-circle { background: var(--sbg); border-color: var(--sc); color: var(--sc); }
+    .vflow-step-title { color: #fff; }
+
+    .parallel-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+      margin-top: .75rem;
+    }
+
+    .parallel-cell {
+      background: rgba(0,0,0,.3);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 10px;
+      padding: .75rem 1rem;
+    }
+
+    .parallel-cell-title {
+      font-size: .75rem;
+      font-weight: 700;
+      margin-bottom: .3rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .parallel-cell-desc {
+      font-size: .72rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── K8S CLUSTER ─────────────────────────────── */
+    .k8s-cluster {
+      background: rgba(50,108,229,.04);
+      border: 2px dashed rgba(50,108,229,.3);
+      border-radius: 20px;
+      padding: 2rem;
+      margin: 1rem 0;
+      position: relative;
+    }
+
+    .k8s-cluster-label {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      background: var(--surface);
+      padding: 0 .75rem;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #7da3fa;
+      text-transform: uppercase;
+    }
+
+    .namespace-box {
+      background: rgba(50,108,229,.06);
+      border: 1px dashed rgba(50,108,229,.25);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    .namespace-label {
+      position: absolute;
+      top: -10px;
+      left: 14px;
+      background: var(--surface);
+      padding: 0 .5rem;
+      font-size: .65rem;
+      font-weight: 700;
+      color: #60a5fa;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .deployment-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: .75rem;
+    }
+
+    .deployment-box {
+      background: var(--surface2);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 1rem;
+    }
+
+    .deployment-title {
+      font-size: .8rem;
+      font-weight: 700;
+      margin-bottom: .5rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .replica-count {
+      font-size: .65rem;
+      background: rgba(74,222,128,.15);
+      color: #4ade80;
+      border-radius: 100px;
+      padding: .1rem .5rem;
+      font-weight: 700;
+    }
+
+    .pod-row {
+      display: flex;
+      gap: .4rem;
+      flex-wrap: wrap;
+    }
+
+    .pod-box {
+      background: rgba(74,222,128,.08);
+      border: 1px solid rgba(74,222,128,.2);
+      border-radius: 6px;
+      padding: .3rem .6rem;
+      font-size: .65rem;
+      color: #4ade80;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .service-row {
+      display: flex;
+      gap: .75rem;
+      margin-top: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .service-box {
+      background: rgba(59,130,246,.08);
+      border: 1px solid rgba(59,130,246,.25);
+      border-radius: 8px;
+      padding: .6rem 1rem;
+      font-size: .75rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .service-box .svc-label {
+      color: #93c5fd;
+      font-weight: 600;
+    }
+
+    .ingress-box {
+      background: rgba(139,92,246,.08);
+      border: 1px solid rgba(139,92,246,.25);
+      border-radius: 8px;
+      padding: .75rem 1.25rem;
+      font-size: .8rem;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: 1rem;
+    }
+
+    .pvc-box {
+      background: rgba(251,191,36,.06);
+      border: 1px solid rgba(251,191,36,.2);
+      border-radius: 8px;
+      padding: .6rem 1rem;
+      font-size: .75rem;
+      margin-top: .75rem;
+    }
+
+    /* ── COMMAND TABLE ───────────────────────────── */
+    .commands-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+      animation: fadeIn 1s ease .6s both;
+    }
+
+    @media (max-width: 768px) {
+      .commands-grid { grid-template-columns: 1fr; }
+      .parallel-row  { grid-template-columns: 1fr; }
+      .deployment-row { grid-template-columns: 1fr; }
+    }
+
+    .cmd-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      overflow: hidden;
+    }
+
+    .cmd-card-title {
+      font-size: .95rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .cmd-block {
+      background: #0a1628;
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: .75rem;
+    }
+
+    .cmd-comment {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem;
+      color: #4b5563;
+      margin-bottom: .3rem;
+    }
+
+    .cmd-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      color: #93c5fd;
+      line-height: 1.6;
+    }
+
+    .cmd-line .cmd-prompt { color: #4b5563; }
+    .cmd-line .cmd-kw    { color: #c084fc; }
+    .cmd-line .cmd-arg   { color: #4ade80; }
+    .cmd-line .cmd-flag  { color: #fbbf24; }
+
+    /* ── MONITORING PANEL ─────────────────────────── */
+    .monitor-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 3rem;
+      animation: fadeIn 1s ease .7s both;
+    }
+
+    @media (max-width: 1000px) {
+      .monitor-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      .monitor-grid { grid-template-columns: 1fr; }
+    }
+
+    .monitor-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      text-align: center;
+      transition: transform .2s, border-color .2s;
+    }
+    .monitor-card:hover { transform: translateY(-3px); border-color: rgba(99,179,237,.25); }
+
+    .monitor-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .monitor-label { font-size: .75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; }
+    .monitor-val { font-size: 1.4rem; font-weight: 900; }
+    .monitor-desc { font-size: .72rem; color: var(--muted); margin-top: .3rem; }
+
+    .green-val { color: #4ade80; }
+    .blue-val  { color: #60a5fa; }
+    .purple-val{ color: #c084fc; }
+    .orange-val{ color: #fbbf24; }
+
+    /* ── STATUS INDICATOR ─────────────────────────── */
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: .4rem;
+      animation: blink 1.5s ease infinite;
+    }
+    .status-dot.green { background: #4ade80; box-shadow: 0 0 8px #4ade80; }
+    .status-dot.blue  { background: #60a5fa; box-shadow: 0 0 8px #60a5fa; }
+
+    @keyframes blink {
+      0%,100% { opacity: 1; }
+      50%      { opacity: .4; }
+    }
+
+    /* ── TABS ─────────────────────────────────────── */
+    .tabs-wrapper {
+      margin-bottom: 3rem;
+      animation: fadeIn 1s ease .5s both;
+    }
+
+    .tabs-nav {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      padding: .55rem 1.25rem;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .tab-btn:hover { border-color: rgba(99,179,237,.35); color: var(--text); }
+    .tab-btn.active {
+      background: rgba(59,130,246,.2);
+      border-color: var(--accent-blue);
+      color: #93c5fd;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── ANIMATIONS ──────────────────────────────── */
+    @keyframes fadeIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes fadeInDown { from { opacity:0; transform:translateY(-16px); } to { opacity:1; transform:translateY(0); } }
+
+    /* ── FOOTER ──────────────────────────────────── */
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .8rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: rgba(99,179,237,.3); border-radius: 3px; }
+
+    /* ── CHEVRON ARROW (horizontal) ──────────────── */
+    .arrow-right {
+      color: rgba(99,179,237,.5);
+      font-size: 1.2rem;
+      align-self: flex-start;
+      margin-top: 14px;
+      padding: 0 4px;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ── HERO ── -->
+  <div class="hero">
+    <div class="hero-badge">🚀 DevOps Visualization</div>
+    <h1>PO Generator<br/>CI/CD Pipeline</h1>
+    <p>Complete end-to-end workflow — from code push to production deployment using Jenkins, Docker & Kubernetes.</p>
+  </div>
+
+  <!-- ── TECH STACK ── -->
+  <div class="stack-row">
+    <div class="stack-badge jenkins"><span class="stack-icon">🔧</span> Jenkins CI/CD</div>
+    <div class="stack-badge docker"><span class="stack-icon">🐳</span> Docker</div>
+    <div class="stack-badge ghcr"><span class="stack-icon">📦</span> GitHub GHCR</div>
+    <div class="stack-badge k8s"><span class="stack-icon">☸️</span> Kubernetes</div>
+    <div class="stack-badge node"><span class="stack-icon">⚡</span> Node.js Backend</div>
+    <div class="stack-badge react"><span class="stack-icon">⚛️</span> React Frontend</div>
+  </div>
+
+  <!-- ── LIVE STATS ── -->
+  <div class="monitor-grid">
+    <div class="monitor-card">
+      <div class="monitor-icon">🔧</div>
+      <div class="monitor-label">Jenkins Stages</div>
+      <div class="monitor-val blue-val">6</div>
+      <div class="monitor-desc">Checkout → Push</div>
+    </div>
+    <div class="monitor-card">
+      <div class="monitor-icon">🐳</div>
+      <div class="monitor-label">Docker Images</div>
+      <div class="monitor-val purple-val">2</div>
+      <div class="monitor-desc">Backend + Frontend</div>
+    </div>
+    <div class="monitor-card">
+      <div class="monitor-icon">☸️</div>
+      <div class="monitor-label">K8s Replicas</div>
+      <div class="monitor-val green-val">4</div>
+      <div class="monitor-desc">2 backend + 2 frontend</div>
+    </div>
+    <div class="monitor-card">
+      <div class="monitor-icon">⏱️</div>
+      <div class="monitor-label">Build Timeout</div>
+      <div class="monitor-val orange-val">30m</div>
+      <div class="monitor-desc">Max pipeline duration</div>
+    </div>
+  </div>
+
+  <!-- ── JENKINS PIPELINE STAGES ── -->
+  <div class="section-header">
+    <div class="section-label">Stage View</div>
+    <div class="section-title">Jenkins Pipeline Stages</div>
+  </div>
+
+  <div class="pipeline-wrapper">
+    <div class="pipeline-flow">
+
+      <!-- Stage 1 -->
+      <div class="flow-group">
+        <div class="stage-node checkout active-pulse" onclick="showDetail('checkout')">
+          <span class="stage-icon">📥</span>
+          <span class="stage-name">Checkout</span>
+          <span class="stage-sub">Git clone + tag</span>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="flow-line"></div></div>
+
+      <!-- Stage 2 -->
+      <div class="flow-group">
+        <div class="stage-node install" onclick="showDetail('install')">
+          <span class="stage-icon">📦</span>
+          <span class="stage-name">Install & Lint</span>
+          <span class="stage-sub">npm ci (parallel)</span>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="flow-line"></div></div>
+
+      <!-- Stage 3 -->
+      <div class="flow-group">
+        <div class="stage-node test" onclick="showDetail('test')">
+          <span class="stage-icon">🧪</span>
+          <span class="stage-name">Test</span>
+          <span class="stage-sub">Build check</span>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="flow-line"></div></div>
+
+      <!-- Stage 4 -->
+      <div class="flow-group">
+        <div class="stage-node build-img" onclick="showDetail('build')">
+          <span class="stage-icon">🏗️</span>
+          <span class="stage-name">Build Images</span>
+          <span class="stage-sub">Docker build</span>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="flow-line"></div></div>
+
+      <!-- Stage 5 -->
+      <div class="flow-group">
+        <div class="stage-node push" onclick="showDetail('push')">
+          <span class="stage-icon">🚀</span>
+          <span class="stage-name">Push GHCR</span>
+          <span class="stage-sub">Registry push</span>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="flow-line"></div></div>
+
+      <!-- Stage 6 -->
+      <div class="flow-group">
+        <div class="stage-node deploy" onclick="showDetail('deploy')">
+          <span class="stage-icon">☸️</span>
+          <span class="stage-name">Deploy K8s</span>
+          <span class="stage-sub">kubectl apply</span>
+        </div>
+      </div>
+      <div class="flow-connector"><div class="flow-line"></div></div>
+
+      <!-- Stage 7 -->
+      <div class="flow-group">
+        <div class="stage-node health" onclick="showDetail('health')">
+          <span class="stage-icon">❤️</span>
+          <span class="stage-name">Health Check</span>
+          <span class="stage-sub">Rollout status</span>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:.75rem;color:var(--muted);margin-top:1.25rem;text-align:center;">
+      💡 <strong>Tip:</strong> Click any stage card above to jump to its detailed explanation below.
+    </p>
+  </div>
+
+  <!-- ── TABBED DETAIL SECTIONS ── -->
+  <div class="tabs-wrapper">
+    <div class="section-header">
+      <div class="section-label">Deep Dive</div>
+      <div class="section-title">Complete Workflow Explained</div>
+    </div>
+
+    <div class="tabs-nav" id="tabsNav">
+      <button class="tab-btn active" onclick="switchTab('overview')">🗺️ Overview</button>
+      <button class="tab-btn" onclick="switchTab('jenkins')">🔧 Jenkins</button>
+      <button class="tab-btn" onclick="switchTab('docker')">🐳 Docker</button>
+      <button class="tab-btn" onclick="switchTab('k8s')">☸️ Kubernetes</button>
+      <button class="tab-btn" onclick="switchTab('commands')">💻 Commands</button>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div id="tab-overview" class="tab-panel active">
+      <div class="workflow-section">
+        <div class="workflow-title">🗺️ End-to-End Flow</div>
+        <div class="workflow-desc">
+          Every step from writing code to running in production — your complete DevOps lifecycle.
+        </div>
+
+        <div class="vflow">
+
+          <!-- Step 1: Dev -->
+          <div class="vflow-step step-dev">
+            <div class="vflow-left">
+              <div class="vflow-circle">👨‍💻</div>
+              <div class="vflow-line-seg"></div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">1. Developer Writes Code</div>
+                <div class="vflow-step-desc">
+                  You write features in <strong>React (frontend)</strong> or <strong>Node.js/Express (backend)</strong>. Code is organized in the <code>frontend/</code> and <code>backend/</code> folders.
+                </div>
+                <div>
+                  <span class="code-chip">frontend/src/</span>
+                  <span class="code-chip">backend/server.js</span>
+                  <span class="code-chip">backend/routes/</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Git Push -->
+          <div class="vflow-step step-git">
+            <div class="vflow-left">
+              <div class="vflow-circle">📤</div>
+              <div class="vflow-line-seg"></div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">2. git push → GitHub</div>
+                <div class="vflow-step-desc">
+                  You push code to GitHub. Jenkins detects the push via <strong>webhook</strong> (or polling) and automatically triggers the CI/CD pipeline.
+                </div>
+                <span class="code-chip">git push origin main</span>
+                <span class="code-chip">Jenkins Webhook Trigger</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Jenkins -->
+          <div class="vflow-step step-jen">
+            <div class="vflow-left">
+              <div class="vflow-circle">🔧</div>
+              <div class="vflow-line-seg"></div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">3. Jenkins Runs Pipeline (Jenkinsfile)</div>
+                <div class="vflow-step-desc">
+                  Jenkins reads your <strong>Jenkinsfile</strong> and runs 6 stages. Parallel stages run simultaneously to save time.
+                </div>
+                <div class="parallel-row">
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#a78bfa">📥 Stage 1 — Checkout</div>
+                    <div class="parallel-cell-desc">Clone repo, compute short Git SHA, set image tag like <code>42-a1b2c3d</code></div>
+                  </div>
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#34d399">📦 Stage 2 — Install (parallel)</div>
+                    <div class="parallel-cell-desc">Backend: <code>npm ci</code> and Frontend: <code>npm ci</code> run at the same time</div>
+                  </div>
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#fbbf24">🧪 Stage 3 — Test (parallel)</div>
+                    <div class="parallel-cell-desc">Backend tests + Frontend build check (<code>npm run build</code>) both run simultaneously</div>
+                  </div>
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#38bdf8">🏗️ Stage 4 — Build (parallel)</div>
+                    <div class="parallel-cell-desc">Two Docker images built simultaneously: <code>po-generator-backend</code> and <code>po-generator-frontend</code></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Docker -->
+          <div class="vflow-step step-doc">
+            <div class="vflow-left">
+              <div class="vflow-circle">🐳</div>
+              <div class="vflow-line-seg"></div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">4. Docker Builds Container Images</div>
+                <div class="vflow-step-desc">
+                  Each service has its own <strong>Dockerfile</strong>. Docker packages your app + all dependencies into a portable image tagged with build number + git SHA.
+                </div>
+                <div class="parallel-row">
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#38bdf8">🖥️ Backend Image</div>
+                    <div class="parallel-cell-desc">Node.js + Express app. Runs on port <strong>5002</strong>. Includes <code>/api/health</code> endpoint.</div>
+                  </div>
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#67e8f9">⚛️ Frontend Image</div>
+                    <div class="parallel-cell-desc">Vite builds React → Nginx serves static files on port <strong>80</strong>.</div>
+                  </div>
+                </div>
+                <div style="margin-top:.75rem">
+                  <span class="code-chip">ghcr.io/jiviashwin/po-generator-backend:42-a1b2c3d</span>
+                  <span class="code-chip">ghcr.io/jiviashwin/po-generator-frontend:42-a1b2c3d</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 5: GHCR -->
+          <div class="vflow-step step-ghcr">
+            <div class="vflow-left">
+              <div class="vflow-circle">📦</div>
+              <div class="vflow-line-seg"></div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">5. Push to GitHub Container Registry (GHCR)</div>
+                <div class="vflow-step-desc">
+                  Jenkins authenticates with GHCR using a <strong>Personal Access Token</strong> stored as a Jenkins credential. Both images are pushed with two tags: version-specific and <code>:latest</code>.
+                </div>
+                <span class="code-chip">docker login ghcr.io</span>
+                <span class="code-chip">docker push :tag + :latest</span>
+                <span class="code-chip">docker logout ghcr.io</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 6: K8s -->
+          <div class="vflow-step step-k8s">
+            <div class="vflow-left">
+              <div class="vflow-circle">☸️</div>
+              <div class="vflow-line-seg"></div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">6. Kubernetes Deploys & Manages</div>
+                <div class="vflow-step-desc">
+                  Kubernetes pulls images from GHCR and runs them in the <strong>po-generator</strong> namespace. It manages 2 replicas of each service with <strong>RollingUpdate</strong> strategy — zero downtime!
+                </div>
+                <div class="parallel-row">
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#4ade80">🔄 Rolling Update</div>
+                    <div class="parallel-cell-desc">New pods start before old ones terminate. <code>maxUnavailable: 0</code> ensures no downtime.</div>
+                  </div>
+                  <div class="parallel-cell">
+                    <div class="parallel-cell-title" style="color:#4ade80">❤️ Health Checks</div>
+                    <div class="parallel-cell-desc">Liveness & Readiness probes check <code>/api/health</code> every 15s to ensure pods are healthy.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 7: Monitoring -->
+          <div class="vflow-step step-mon">
+            <div class="vflow-left">
+              <div class="vflow-circle">📊</div>
+            </div>
+            <div class="vflow-content">
+              <div class="vflow-content-inner">
+                <div class="vflow-step-title">7. Monitor & Observe</div>
+                <div class="vflow-step-desc">
+                  Jenkins marks build as ✅ SUCCESS or ❌ FAILURE. Kubernetes keeps your app running with auto-restart on crash and maintains desired replica count.
+                </div>
+                <span class="code-chip">kubectl get pods -n po-generator</span>
+                <span class="code-chip">kubectl logs -f deployment/backend</span>
+                <span class="code-chip">Jenkins Build History</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- JENKINS TAB -->
+    <div id="tab-jenkins" class="tab-panel">
+      <div class="arch-grid" style="margin-bottom:1.5rem">
+        <div class="arch-card jenkins-card" style="grid-column: span 3">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">🔧</div>
+            <div>
+              <div class="arch-card-title">Jenkins CI/CD Server</div>
+              <div class="arch-card-subtitle">Runs at http://localhost:8080 | Reads from Jenkinsfile</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arch-grid">
+        <div class="arch-card jenkins-card">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">⚙️</div>
+            <div>
+              <div class="arch-card-title">Pipeline Options</div>
+              <div class="arch-card-subtitle">Global configuration</div>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="dot"></span><span>Keep last <strong>10 builds</strong> (log rotation)</span></li>
+            <li><span class="dot"></span><span><strong>30-minute timeout</strong> — auto-fails if exceeded</span></li>
+            <li><span class="dot"></span><span><strong>No concurrent builds</strong> — prevents race conditions</span></li>
+            <li><span class="dot"></span><span><strong>Timestamps</strong> on every log line</span></li>
+          </ul>
+        </div>
+
+        <div class="arch-card jenkins-card">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">🔑</div>
+            <div>
+              <div class="arch-card-title">Credentials</div>
+              <div class="arch-card-subtitle">Stored in Jenkins Credentials Store</div>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="dot"></span><span><strong>ghcr-credentials</strong> — GitHub username + PAT token</span></li>
+            <li><span class="dot"></span><span><strong>kubeconfig</strong> — Secret file for kubectl access</span></li>
+            <li><span class="dot"></span><span>Never exposed in logs — uses <code>withCredentials{}</code></span></li>
+          </ul>
+        </div>
+
+        <div class="arch-card jenkins-card">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">🏷️</div>
+            <div>
+              <div class="arch-card-title">Image Tagging Strategy</div>
+              <div class="arch-card-subtitle">Unique per build</div>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="dot"></span><span>Format: <strong>BUILD_NUM-GIT_SHA</strong> (e.g. <code>42-a1b2c3d</code>)</span></li>
+            <li><span class="dot"></span><span>Also tagged as <strong>:latest</strong> for easy referencing</span></li>
+            <li><span class="dot"></span><span>Enables <strong>rollback</strong> to any previous version</span></li>
+            <li><span class="dot"></span><span>Parallel build + push for <strong>speed</strong></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="workflow-section" style="margin-top:1.5rem">
+        <div class="workflow-title">📋 Post-Build Actions</div>
+        <div class="workflow-desc">Jenkins automatically runs cleanup regardless of success or failure.</div>
+        <div class="parallel-row">
+          <div class="parallel-cell">
+            <div class="parallel-cell-title" style="color:#4ade80">✅ On SUCCESS</div>
+            <div class="parallel-cell-desc">Prints "✅ Pipeline succeeded! Build #N deployed." Local Docker images are cleaned up to save disk space.</div>
+          </div>
+          <div class="parallel-cell">
+            <div class="parallel-cell-title" style="color:#f87171">❌ On FAILURE</div>
+            <div class="parallel-cell-desc">Prints "❌ Pipeline failed." Local Docker images are still cleaned up. Logs are preserved for debugging.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DOCKER TAB -->
+    <div id="tab-docker" class="tab-panel">
+      <div class="arch-grid">
+        <div class="arch-card docker-card">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">🐳</div>
+            <div>
+              <div class="arch-card-title">Docker Overview</div>
+              <div class="arch-card-subtitle">Containerization engine</div>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="dot"></span><span>Packages app + OS deps into a <strong>portable image</strong></span></li>
+            <li><span class="dot"></span><span>2 separate Dockerfiles — <strong>backend</strong> and <strong>frontend</strong></span></li>
+            <li><span class="dot"></span><span><strong>Layer caching</strong> speeds up repeated builds</span></li>
+            <li><span class="dot"></span><span>Images are pushed to <strong>GHCR</strong> for central storage</span></li>
+          </ul>
+        </div>
+
+        <div class="arch-card docker-card">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">🖥️</div>
+            <div>
+              <div class="arch-card-title">Backend Container</div>
+              <div class="arch-card-subtitle">Node.js + Express API</div>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="dot"></span><span>Port: <strong>5002</strong></span></li>
+            <li><span class="dot"></span><span>Health: <code>GET /api/health</code></span></li>
+            <li><span class="dot"></span><span>Env from <strong>ConfigMap</strong> + <strong>Secrets</strong></span></li>
+            <li><span class="dot"></span><span>Uploads volume <strong>persisted</strong> via PVC</span></li>
+          </ul>
+        </div>
+
+        <div class="arch-card docker-card">
+          <div class="arch-card-header">
+            <div class="arch-card-icon">⚛️</div>
+            <div>
+              <div class="arch-card-title">Frontend Container</div>
+              <div class="arch-card-subtitle">React/Vite + Nginx</div>
+            </div>
+          </div>
+          <ul class="feature-list">
+            <li><span class="dot"></span><span>Vite builds → <strong>static files</strong></span></li>
+            <li><span class="dot"></span><span>Nginx serves on port <strong>80</strong></span></li>
+            <li><span class="dot"></span><span>Nginx proxies <code>/api/*</code> → backend</span></li>
+            <li><span class="dot"></span><span>Only runs after backend is <strong>healthy</strong></span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="workflow-section" style="margin-top:1.5rem">
+        <div class="workflow-title">🐙 docker-compose.yml — Local Development</div>
+        <div class="workflow-desc">
+          For local development/testing, docker-compose starts both containers together with a shared <code>po-network</code>. 
+          <strong>Production uses Kubernetes instead.</strong>
+        </div>
+        <div class="parallel-row">
+          <div class="parallel-cell">
+            <div class="parallel-cell-title" style="color:#38bdf8">📄 Services</div>
+            <div class="parallel-cell-desc">
+              <strong>backend</strong>: Port 5002, env from .env file, healthcheck every 30s<br/><br/>
+              <strong>frontend</strong>: Port 80, starts only when backend is healthy
+            </div>
+          </div>
+          <div class="parallel-cell">
+            <div class="parallel-cell-title" style="color:#38bdf8">🌐 Network & Volumes</div>
+            <div class="parallel-cell-desc">
+              Both services on <code>po-network</code> bridge<br/><br/>
+              <code>uploads_data</code> named volume persists uploaded files between restarts
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1rem">
+          <span class="code-chip">docker-compose up --build</span>
+          <span class="code-chip">docker-compose down -v</span>
+          <span class="code-chip">docker-compose logs -f backend</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- K8S TAB -->
+    <div id="tab-k8s" class="tab-panel">
+      <div class="workflow-section">
+        <div class="workflow-title">☸️ Kubernetes Cluster Architecture</div>
+        <div class="workflow-desc">Your app runs in the <code>po-generator</code> namespace inside a Kubernetes cluster (Minikube for local, cloud for production).</div>
+
+        <div class="k8s-cluster">
+          <div class="k8s-cluster-label">☸️ Kubernetes Cluster</div>
+
+          <!-- Ingress -->
+          <div class="ingress-box">
+            <span style="font-size:1.2rem">🌐</span>
+            <div>
+              <div style="font-weight:700;font-size:.85rem;color:#c084fc">Ingress Controller</div>
+              <div style="font-size:.75rem;color:var(--muted)">Routes external traffic → Frontend (/) and Backend (/api) based on URL path rules</div>
+            </div>
+          </div>
+
+          <!-- Namespace -->
+          <div class="namespace-box">
+            <div class="namespace-label">namespace: po-generator</div>
+
+            <!-- Deployments -->
+            <div class="deployment-row">
+              <div class="deployment-box">
+                <div class="deployment-title" style="color:#38bdf8">
+                  🔷 Backend Deployment
+                  <span class="replica-count">2 replicas</span>
+                </div>
+                <div class="pod-row">
+                  <div class="pod-box">backend-pod-1</div>
+                  <div class="pod-box">backend-pod-2</div>
+                </div>
+                <div style="font-size:.7rem;color:var(--muted);margin-top:.5rem">
+                  Image: <code>ghcr.io/jiviashwin/po-generator-backend:latest</code><br/>
+                  CPU: 100m–500m | RAM: 256Mi–512Mi<br/>
+                  Strategy: RollingUpdate (maxUnavailable: 0)
+                </div>
+              </div>
+
+              <div class="deployment-box">
+                <div class="deployment-title" style="color:#67e8f9">
+                  🔷 Frontend Deployment
+                  <span class="replica-count">2 replicas</span>
+                </div>
+                <div class="pod-row">
+                  <div class="pod-box">frontend-pod-1</div>
+                  <div class="pod-box">frontend-pod-2</div>
+                </div>
+                <div style="font-size:.7rem;color:var(--muted);margin-top:.5rem">
+                  Image: <code>ghcr.io/jiviashwin/po-generator-frontend:latest</code><br/>
+                  Nginx serving static React build<br/>
+                  Strategy: RollingUpdate
+                </div>
+              </div>
+            </div>
+
+            <!-- Services -->
+            <div style="margin-top:1rem;font-size:.75rem;font-weight:700;color:#93c5fd;margin-bottom:.4rem">⚡ Services (Internal DNS)</div>
+            <div class="service-row">
+              <div class="service-box">
+                <span>🔗</span>
+                <div>
+                  <div class="svc-label">backend-service</div>
+                  <div style="font-size:.65rem;color:var(--muted)">ClusterIP :5002 → backend pods</div>
+                </div>
+              </div>
+              <div class="service-box">
+                <span>🔗</span>
+                <div>
+                  <div class="svc-label">frontend-service</div>
+                  <div style="font-size:.65rem;color:var(--muted)">NodePort :80 → frontend pods</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Config & Secrets -->
+            <div class="parallel-row" style="margin-top:1rem">
+              <div class="parallel-cell">
+                <div class="parallel-cell-title" style="color:#fbbf24">🗂️ ConfigMap</div>
+                <div class="parallel-cell-desc">Non-sensitive config: NODE_ENV, PORT, FRONTEND_URL injected as env vars into pods</div>
+              </div>
+              <div class="parallel-cell">
+                <div class="parallel-cell-title" style="color:#f87171">🔐 Secrets</div>
+                <div class="parallel-cell-desc">Sensitive: MONGODB_URI, JWT_SECRET, SESSION_SECRET, SMTP_USER, SMTP_PASS — encrypted in K8s</div>
+              </div>
+            </div>
+
+            <!-- PVC -->
+            <div class="pvc-box">
+              <span style="color:#fbbf24;font-weight:700">💾 PersistentVolumeClaim (uploads-pvc)</span><br/>
+              <span style="font-size:.7rem;color:var(--muted)">Mounted at <code>/app/uploads</code> in backend pods — persists uploaded files across pod restarts</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Health Probe details -->
+        <div class="parallel-row" style="margin-top:1rem">
+          <div class="parallel-cell">
+            <div class="parallel-cell-title" style="color:#4ade80">❤️ Liveness Probe</div>
+            <div class="parallel-cell-desc">GET <code>/api/health</code> every 15s. After 3 failures, K8s <strong>restarts</strong> the container automatically.</div>
+          </div>
+          <div class="parallel-cell">
+            <div class="parallel-cell-title" style="color:#60a5fa">✅ Readiness Probe</div>
+            <div class="parallel-cell-desc">GET <code>/api/health</code> every 10s. Only pods passing this get traffic. Failing pods are <strong>temporarily removed</strong> from service.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMMANDS TAB -->
+    <div id="tab-commands" class="tab-panel">
+      <div class="commands-grid">
+
+        <div class="cmd-card">
+          <div class="cmd-card-title">🔧 Jenkins — Pipeline Control</div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Start Jenkins with Docker</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">docker-compose</span> <span class="cmd-arg">-f jenkins/jenkins-docker-compose.yml</span> <span class="cmd-arg">up -d</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Check Jenkins logs</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">docker</span> <span class="cmd-arg">logs</span> <span class="cmd-flag">-f</span> jenkins</div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Trigger build manually via Jenkins UI</div>
+            <div class="cmd-line"><span class="cmd-prompt"># </span> Open http://localhost:8080 → pipeline → Build Now</div>
+          </div>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-card-title">🐳 Docker — Image Management</div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Build backend image manually</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">docker build</span> <span class="cmd-flag">-t</span> <span class="cmd-arg">ghcr.io/jiviashwin/po-generator-backend:latest</span> ./backend</div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># List all images</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">docker images</span> <span class="cmd-flag">| grep</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Local dev with docker-compose</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">docker-compose</span> <span class="cmd-arg">up --build</span></div>
+          </div>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-card-title">☸️ Kubernetes — Monitor Pods</div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Watch all pods in namespace</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl get pods</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span> <span class="cmd-flag">-w</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Check deployment rollout status</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl rollout status</span> <span class="cmd-arg">deployment/backend</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># View pod logs live</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl logs</span> <span class="cmd-flag">-f</span> <span class="cmd-arg">deployment/backend</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-card-title">☸️ Kubernetes — Deploy & Manage</div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Apply all K8s manifests</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl apply</span> <span class="cmd-flag">-f</span> <span class="cmd-arg">k8s/</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Force update image (manual deploy)</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl set image</span> <span class="cmd-arg">deployment/backend</span> <span class="cmd-arg">backend=ghcr.io/jiviashwin/po-generator-backend:NEW_TAG</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Rollback to previous version</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl rollout undo</span> <span class="cmd-arg">deployment/backend</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-card-title">🔍 Kubernetes — Debugging</div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Describe a failing pod</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl describe pod</span> <span class="cmd-arg">&lt;pod-name&gt;</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Check services</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl get svc</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Check configmap + secrets</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">kubectl get cm,secret</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span></div>
+          </div>
+        </div>
+
+        <div class="cmd-card">
+          <div class="cmd-card-title">🚀 Minikube — Local Cluster</div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Start Minikube</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">minikube start</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Open dashboard UI</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">minikube dashboard</span></div>
+          </div>
+          <div class="cmd-block">
+            <div class="cmd-comment"># Get service URL</div>
+            <div class="cmd-line"><span class="cmd-prompt">$</span> <span class="cmd-kw">minikube service</span> <span class="cmd-arg">frontend-service</span> <span class="cmd-flag">-n</span> <span class="cmd-arg">po-generator</span> <span class="cmd-flag">--url</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- end tabs-wrapper -->
+
+  <!-- ── 3 TOOL BREAKDOWN ── -->
+  <div class="section-header">
+    <div class="section-label">Tool Breakdown</div>
+    <div class="section-title">The Role of Each Tool</div>
+  </div>
+
+  <div class="arch-grid">
+    <div class="arch-card jenkins-card">
+      <div class="arch-card-header">
+        <div class="arch-card-icon">🔧</div>
+        <div>
+          <div class="arch-card-title">Jenkins</div>
+          <div class="arch-card-subtitle">The Automation Brain</div>
+        </div>
+      </div>
+      <ul class="feature-list">
+        <li><span class="dot"></span><span><strong>Detects</strong> code changes via GitHub webhook</span></li>
+        <li><span class="dot"></span><span><strong>Orchestrates</strong> the entire build pipeline</span></li>
+        <li><span class="dot"></span><span><strong>Runs</strong> tests and build verification</span></li>
+        <li><span class="dot"></span><span><strong>Triggers</strong> Docker builds and pushes</span></li>
+        <li><span class="dot"></span><span><strong>Deploys</strong> to Kubernetes via kubectl</span></li>
+        <li><span class="dot"></span><span><strong>Reports</strong> success/failure status</span></li>
+      </ul>
+    </div>
+
+    <div class="arch-card docker-card">
+      <div class="arch-card-header">
+        <div class="arch-card-icon">🐳</div>
+        <div>
+          <div class="arch-card-title">Docker</div>
+          <div class="arch-card-subtitle">The Packaging Engine</div>
+        </div>
+      </div>
+      <ul class="feature-list">
+        <li><span class="dot"></span><span><strong>Packages</strong> your app into portable containers</span></li>
+        <li><span class="dot"></span><span><strong>Eliminates</strong> "works on my machine" problems</span></li>
+        <li><span class="dot"></span><span><strong>Layers</strong> allow fast cached rebuilds</span></li>
+        <li><span class="dot"></span><span><strong>Stores</strong> images in GHCR registry</span></li>
+        <li><span class="dot"></span><span><strong>Enables</strong> local dev with docker-compose</span></li>
+        <li><span class="dot"></span><span><strong>Feeds</strong> images to Kubernetes for deployment</span></li>
+      </ul>
+    </div>
+
+    <div class="arch-card k8s-card">
+      <div class="arch-card-header">
+        <div class="arch-card-icon">☸️</div>
+        <div>
+          <div class="arch-card-title">Kubernetes</div>
+          <div class="arch-card-subtitle">The Production Operator</div>
+        </div>
+      </div>
+      <ul class="feature-list">
+        <li><span class="dot"></span><span><strong>Runs</strong> containers as Pods at scale</span></li>
+        <li><span class="dot"></span><span><strong>Maintains</strong> desired replica count (2 each)</span></li>
+        <li><span class="dot"></span><span><strong>Zero-downtime</strong> rolling updates</span></li>
+        <li><span class="dot"></span><span><strong>Auto-restarts</strong> unhealthy pods</span></li>
+        <li><span class="dot"></span><span><strong>Routes traffic</strong> via Services + Ingress</span></li>
+        <li><span class="dot"></span><span><strong>Manages</strong> secrets and configuration</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <div class="footer" style="margin-top:3rem">
+    <p>PO Generator DevOps Pipeline &nbsp;·&nbsp; Jenkins + Docker + Kubernetes &nbsp;·&nbsp; <span class="status-dot green"></span><span style="color:#4ade80">Live</span></p>
+  </div>
+
+</div><!-- end container -->
+
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    const btns = document.querySelectorAll('.tab-btn');
+    const nameMap = { overview: 0, jenkins: 1, docker: 2, k8s: 3, commands: 4 };
+    if (nameMap[name] !== undefined) btns[nameMap[name]].classList.add('active');
+  }
+
+  function showDetail(stage) {
+    const map = {
+      checkout: 'jenkins',
+      install:  'jenkins',
+      test:     'jenkins',
+      build:    'docker',
+      push:     'docker',
+      deploy:   'k8s',
+      health:   'k8s'
+    };
+    const tab = map[stage] || 'overview';
+    switchTab(tab);
+    const el = document.getElementById('tab-' + tab);
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Animate stage nodes on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = '1';
+        e.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.arch-card, .monitor-card, .cmd-card').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(20px)';
+    el.style.transition = 'opacity .5s ease, transform .5s ease';
+    observer.observe(el);
+  });
+</script>
+</body>
+</html>

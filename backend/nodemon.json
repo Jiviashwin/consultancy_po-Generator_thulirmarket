@@ -1,0 +1,19 @@
+{
+    "watch": [
+        "server.js",
+        "config",
+        "controllers",
+        "models",
+        "routes",
+        "middleware",
+        "utils"
+    ],
+    "ext": "js,json",
+    "ignore": [
+        "uploads/*",
+        "node_modules",
+        "*.test.js",
+        "npm-debug.log"
+    ],
+    "exec": "node server.js"
+}

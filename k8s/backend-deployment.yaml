@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: po-generator
+  labels:
+    app.kubernetes.io/name: po-generator
+    app.kubernetes.io/component: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: backend
+        app.kubernetes.io/component: backend
+    spec:
+      # Graceful shutdown
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: backend
+          # Updated by Jenkins: ghcr.io/<YOUR_GITHUB_USERNAME>/po-generator-backend:<tag>
+          image: ghcr.io/jiviashwin/po-generator-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5002
+              name: http
+
+          # ── Environment from ConfigMap ───────────────────
+          envFrom:
+            - configMapRef:
+                name: po-generator-config
+
+          # ── Sensitive env from Secret ────────────────────
+          env:
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: po-generator-secrets
+                  key: MONGODB_URI
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: po-generator-secrets
+                  key: JWT_SECRET
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: po-generator-secrets
+                  key: SESSION_SECRET
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: po-generator-secrets
+                  key: SMTP_USER
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: po-generator-secrets
+                  key: SMTP_PASS
+
+          # ── Volume mount for uploads ─────────────────────
+          volumeMounts:
+            - name: uploads-storage
+              mountPath: /app/uploads
+
+          # ── Probes ──────────────────────────────────────
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 5002
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 5002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ── Resource limits ──────────────────────────────
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+      volumes:
+        - name: uploads-storage
+          persistentVolumeClaim:
+            claimName: uploads-pvc
+
+      # Pull from GHCR (private repo requires imagePullSecrets)
+      # imagePullSecrets:
+      #   - name: ghcr-credentials

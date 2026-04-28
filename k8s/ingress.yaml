@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: po-generator-ingress
+  namespace: po-generator
+  labels:
+    app.kubernetes.io/name: po-generator
+  annotations:
+    # Enable the Minikube NGINX ingress addon:
+    #   minikube addons enable ingress
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Uncomment below for TLS with cert-manager:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  # ── TLS (uncomment when you have a domain + cert-manager) ──
+  # tls:
+  #   - hosts:
+  #       - po-generator.yourdomain.com
+  #     secretName: po-generator-tls
+  rules:
+    - host: po-generator.local   # Add to /etc/hosts: $(minikube ip) po-generator.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 5002
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
