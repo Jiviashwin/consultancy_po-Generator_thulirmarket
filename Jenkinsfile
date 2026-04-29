@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    environment {
-        APP_NAME = "consultancy-app"
-        DOCKER_IMAGE = "consultancy-app"
-    }
-
     stages {
 
         stage('Clone Repository') {
@@ -17,25 +12,22 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t $DOCKER_IMAGE .'
+                sh 'docker build -t thulir-app .'
             }
         }
 
-        stage('Run Container') {
+        stage('Run Docker Container') {
             steps {
-                sh '''
-                docker rm -f consultancy-container || true
-                docker run -d --name consultancy-container -p 3000:3000 $DOCKER_IMAGE
-                '''
+                sh 'docker stop thulir-app || true'
+                sh 'docker rm thulir-app || true'
+                sh 'docker run -d --name thulir-app -p 3000:3000 thulir-app'
             }
         }
 
         stage('Kubernetes Deploy') {
             steps {
-                sh '''
-                kubectl create deployment consultancy-app --image=$DOCKER_IMAGE --dry-run=client -o yaml | kubectl apply -f -
-                kubectl expose deployment consultancy-app --type=NodePort --port=3000 --dry-run=client -o yaml | kubectl apply -f -
-                '''
+                sh 'kubectl apply -f deployment.yaml'
+                sh 'kubectl apply -f service.yaml'
             }
         }
     }
