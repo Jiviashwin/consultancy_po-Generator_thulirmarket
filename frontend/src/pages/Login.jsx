@@ -196,7 +196,7 @@ const Login = () => {
                         <strong style={{ display: 'block', marginBottom: '0.5rem' }}>
                             Demo Credentials:
                         </strong>
-                        <div>Email: <code>admin@supermart.com</code></div>
+                        <div>Email: <code>admin@supermartCHANGED.com</code></div>
                         <div>Password: <code>admin123</code></div>
                     </div>
                 </div>
